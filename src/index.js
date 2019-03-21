@@ -132,8 +132,14 @@ export {
 export { socket, socketIdentify } from './apis/socket';
 export { K, bundle } from './helpers/coreHelpers';
 
+import './redux/meta';
+
 commitStore();
 
-const KineticLib = props => <Provider store={store} context={context}>{props.children}</Provider>;
+const KineticLib = props => (
+  <Provider store={store} context={context}>
+    {props.children}
+  </Provider>
+);
 
 export { configure, KineticLib };
