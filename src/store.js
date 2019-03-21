@@ -2,6 +2,7 @@ import { createContext } from 'react';
 import { applyMiddleware, compose, createStore } from 'redux';
 import { create as createAxiosInstance } from 'axios';
 import { connect as originalConnect } from 'react-redux';
+import { select, take } from 'redux-saga/effects';
 import { Map, setIn } from 'immutable';
 import { reducer, regHandlers } from './reducer';
 import { commitSagas, regSaga, runSaga, sagaMiddleware } from './saga';
@@ -53,4 +54,15 @@ export {
   regSaga,
   runSaga,
   store,
+};
+
+export const selectWaiting = function*(selector) {
+  while (true) {
+    const value = yield select(selector);
+    if (value) {
+      return value;
+    } else {
+      yield take();
+    }
+  }
 };

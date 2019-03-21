@@ -1,33 +1,39 @@
 import React from 'react';
 import { call, put, takeEvery } from 'redux-saga/effects';
 import { Form, setupForm, teardownForm } from '../Form';
-import { connect, dispatch, regSaga, regHandlers } from '../../../store';
+import {
+  connect,
+  dispatch,
+  regSaga,
+  regHandlers,
+  selectWaiting,
+} from '../../../store';
 import { fetchUser } from '../../../apis/core';
 
-const fields = ({ locales, space, timezones, user }) => [
+const fields = ({ locales, timezones }) => [
   {
     name: 'spaceAdmin',
     label: 'Space Admin',
     type: 'checkbox',
-    defaultValue: user ? user.spaceAdmin : false,
+    required: true,
   },
   {
     name: 'enabled',
     label: 'Enabled',
     type: 'checkbox',
-    defaultValue: user ? user.enabled : true,
+    required: true,
   },
   {
     name: 'displayName',
     label: 'Display Name',
     type: 'text',
-    defaultValue: user ? user.displayName : '',
+    required: true,
   },
   {
     name: 'email',
     label: 'Email',
     type: 'text',
-    defaultValue: user ? user.email : '',
+    required: true,
   },
   {
     name: 'preferredLocale',
@@ -37,7 +43,7 @@ const fields = ({ locales, space, timezones, user }) => [
       value: locale.code,
       label: locale.name,
     })),
-    defaultValue: user ? user.preferredLocale : space.defaultLocale,
+    required: false,
   },
   {
     name: 'timezone',
@@ -47,9 +53,18 @@ const fields = ({ locales, space, timezones, user }) => [
       value: timezone.id,
       label: timezone.name,
     })),
-    defaultValue: user ? user.timezone : space.defaultTimezone,
+    required: false,
   },
 ];
+
+const values = ({ space, user }) => ({
+  spaceAdmin: user ? user.spaceAdmin : false,
+  enabled: user ? user.enabled : true,
+  displayName: user ? user.displayName : '',
+  email: user ? user.email : '',
+  preferredLocale: user ? user.preferredLocale : '',
+  timezone: user ? user.timezone : '',
+});
 
 const setup = ({ formKey, username, user }) => {
   dispatch('FETCH_SPACE');
@@ -69,7 +84,8 @@ regSaga(
     const { username, formKey } = action.payload;
     const { user } = yield call(fetchUser, { username, include: 'attributes' });
     yield put({ type: 'USER_FORM/SET_USER', payload: { formKey, user } });
-    yield call(setupForm, { formKey });
+    const space = yield selectWaiting(state => state.getIn(['meta', 'space']));
+    yield call(setupForm, { formKey, values: values({ space, user }) });
   }),
 );
 
