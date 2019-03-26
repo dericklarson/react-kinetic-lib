@@ -8,10 +8,10 @@ import {
   regHandlers,
   selectWaiting,
 } from '../../../store';
-import { fetchUser } from '../../../apis/core';
+import { fetchTeams, fetchUser } from '../../../apis/core';
 import { fetchAttributeDefinitions } from '../../../apis/core/attributeDefinitions';
 
-const fields = ({ attributeDefinitions, locales, timezones }) => [
+const fields = ({ attributeDefinitions, locales, teams, timezones }) => [
   {
     name: 'spaceAdmin',
     label: 'Space Admin',
@@ -63,6 +63,13 @@ const fields = ({ attributeDefinitions, locales, timezones }) => [
     required: false,
     attributeDefinitions,
   },
+  {
+    name: 'memberships',
+    label: 'Teams',
+    type: 'memberships',
+    required: false,
+    teams,
+  },
 ];
 
 const values = ({ attributeDefinitions, space, user }) => ({
@@ -78,6 +85,11 @@ const values = ({ attributeDefinitions, space, user }) => ({
         (value, { name }) => ({ ...value, [name]: [] }),
         {},
       ),
+  memberships: user
+    ? user.memberships.map(membership => ({
+        team: { name: membership.team.name },
+      }))
+    : [],
 });
 
 const setup = ({ formKey, username, user }) => {
@@ -96,21 +108,26 @@ const teardown = ({ formKey }) => {
 regSaga(
   takeEvery('USER_FORM/EDIT_USER', function*(action) {
     const { username, formKey } = action.payload;
-    const [{ user }, { attributeDefinitions }] = yield all([
-      call(fetchUser, { username, include: 'attributesMap' }),
+    const [{ user }, { attributeDefinitions }, { teams }] = yield all([
+      call(fetchUser, { username, include: 'attributesMap,memberships' }),
       call(fetchAttributeDefinitions, {
         attributeType: 'userAttributeDefinitions',
       }),
+      call(fetchTeams),
     ]);
     yield put({ type: 'USER_FORM/SET_USER', payload: { formKey, user } });
     yield put({
       type: 'USER_FORM/SET_ATTRIBUTE_DEFINITIONS',
       payload: { formKey, attributeDefinitions },
     });
+    yield put({
+      type: 'USER_FORM/SET_TEAMS',
+      payload: { formKey, teams },
+    });
     const space = yield selectWaiting(state => state.getIn(['meta', 'space']));
     yield call(setupForm, {
       formKey,
-      values: values({ attributeDefinitions, space, user }),
+      values: values({ attributeDefinitions, space, teams, user }),
     });
   }),
 );
@@ -123,11 +140,17 @@ regHandlers({
       ['forms', action.payload.formKey, 'attributeDefinitions'],
       action.payload.attributeDefinitions,
     ),
+  'USER_FORM/SET_TEAMS': (state, action) =>
+    state.setIn(
+      ['forms', action.payload.formKey, 'teams'],
+      action.payload.teams,
+    ),
 });
 
 const mapStateToProps = (state, props) => ({
   locales: state.getIn(['meta', 'locales'], null),
   space: state.getIn(['meta', 'space'], null),
+  teams: state.getIn(['forms', props.formKey, 'teams'], null),
   timezones: state.getIn(['meta', 'timezones'], null),
   user: state.getIn(['forms', props.formKey, 'user'], null),
   attributeDefinitions: state.getIn(
@@ -140,6 +163,7 @@ export const UserForm = connect(mapStateToProps)(
   props =>
     props.locales &&
     props.space &&
+    props.teams &&
     props.timezones &&
     props.user &&
     props.attributeDefinitions && (

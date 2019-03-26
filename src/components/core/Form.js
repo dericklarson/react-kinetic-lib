@@ -2,6 +2,7 @@ import React from 'react';
 import { fromJS, get, getIn, List, Map } from 'immutable';
 import { connect, dispatch, regHandlers } from '../../store';
 import { AttributesField } from './AttributesField';
+import { MembershipsField } from './MembershipsField';
 
 export const isEmpty = value =>
   value === null ||
@@ -79,7 +80,10 @@ export const onChange = ({ fields, formKey }) => event => {
       field: event.target.name,
       value: event.target.checked,
     });
-  } else if (event.target.type === 'attributes') {
+  } else if (
+    event.target.type === 'attributes' ||
+    event.target.type === 'memberships'
+  ) {
     dispatch('SET_VALUE', {
       formKey,
       field: event.target.name,
@@ -170,6 +174,8 @@ export const Field = props => {
       return <CheckboxField {...props} />;
     case 'attributes':
       return <AttributesField {...props} />;
+    case 'memberships':
+      return <MembershipsField {...props} />;
     default:
       return <TextField {...props} />;
   }
@@ -185,6 +191,7 @@ export const Form = connect(mapStateToProps)(props => (
         label={field.label}
         options={field.options}
         attributeDefinitions={field.attributeDefinitions}
+        teams={field.teams}
         type={field.type}
         value={get(props.values, field.name)}
         onFocus={onFocus({ formKey: props.formKey, field: field.name })}
