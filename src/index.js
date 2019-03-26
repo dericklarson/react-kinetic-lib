@@ -1,6 +1,7 @@
 import React from 'react';
 import { Provider } from 'react-redux';
 import { context, commitStore, configure, store } from './store';
+import './redux/meta';
 
 export {
   default as ContentEditable,
@@ -131,8 +132,6 @@ export {
 } from './apis/core';
 export { socket, socketIdentify } from './apis/socket';
 export { K, bundle } from './helpers/coreHelpers';
-
-import './redux/meta';
 
 commitStore();
 

@@ -1,11 +1,14 @@
 import React from 'react';
-import { get, getIn, List, Map } from 'immutable';
+import { fromJS, get, getIn, List, Map } from 'immutable';
 import { connect, dispatch, regHandlers } from '../../store';
+import { AttributesField } from './AttributesField';
 
-const isEmpty = value =>
+export const isEmpty = value =>
   value === null ||
   value === undefined ||
   (value.hasOwnProperty('length') && value.length === 0);
+
+export const equals = (a, b) => fromJS(a).equals(fromJS(b));
 
 regHandlers({
   SETUP_FORM: (state, { payload: { formKey, values } }) =>
@@ -20,15 +23,17 @@ regHandlers({
           focused: false,
         })),
       )
-      .setIn(['forms', formKey, 'errors'], Map(values).map(() => List())),
+      .setIn(['forms', formKey, 'errors'], Map(values).map(() => List()))
+      .setIn(['forms', formKey, 'formState'], Map()),
   SET_VALUE: (state, { payload: { formKey, field, value } }) =>
-    console.log('SET_VALUE', value) ||
     state
       .setIn(['forms', formKey, 'values', field], value)
       .setIn(
         ['forms', formKey, 'fieldStates', field, 'dirty'],
-        value !== state.getIn(['forms', formKey, 'initialValues', field]),
+        !equals(value, state.getIn(['forms', formKey, 'initialValues', field])),
       ),
+  SET_FORM_STATE: (state, { payload: { formKey, path, value } }) =>
+    state.setIn(['forms', formKey, 'formState', ...path], value),
   FOCUS_FIELD: (state, { payload: { formKey, field } }) =>
     state.setIn(['forms', formKey, 'fieldStates', field, 'focused'], true),
   BLUR_FIELD: (state, { payload: { formKey, field } }) =>
@@ -59,18 +64,12 @@ export const teardownForm = ({ formKey }) => {
   dispatch('TEARDOWN_FORM', { formKey });
 };
 
-export const onFocus = ({ formKey }) => event => {
-  dispatch('FOCUS_FIELD', {
-    formKey,
-    field: event.target.name,
-  });
+export const onFocus = ({ formKey, field }) => () => {
+  dispatch('FOCUS_FIELD', { formKey, field });
 };
 
-export const onBlur = ({ formKey }) => event => {
-  dispatch('BLUR_FIELD', {
-    formKey,
-    field: event.target.name,
-  });
+export const onBlur = ({ formKey, field }) => () => {
+  dispatch('BLUR_FIELD', { formKey, field });
 };
 
 export const onChange = ({ fields, formKey }) => event => {
@@ -79,6 +78,12 @@ export const onChange = ({ fields, formKey }) => event => {
       formKey,
       field: event.target.name,
       value: event.target.checked,
+    });
+  } else if (event.target.type === 'attributes') {
+    dispatch('SET_VALUE', {
+      formKey,
+      field: event.target.name,
+      value: event.target.value,
     });
   } else {
     dispatch('SET_VALUE', {
@@ -95,9 +100,14 @@ export const onSubmit = (onSubmit, values) => event => {
   onSubmit(values);
 };
 
+export const setFormState = ({ formKey }) => (path, value) => {
+  dispatch('SET_FORM_STATE', { formKey, path, value });
+};
+
 export const mapStateToProps = (state, props) => ({
   values: state.getIn(['forms', props.formKey, 'values']),
   fieldStates: state.getIn(['forms', props.formKey, 'fieldStates']),
+  formState: state.getIn(['forms', props.formKey, 'formState']),
   errors: state.getIn(['forms', props.formKey, 'errors']),
 });
 
@@ -158,6 +168,8 @@ export const Field = props => {
       return <SelectField {...props} />;
     case 'checkbox':
       return <CheckboxField {...props} />;
+    case 'attributes':
+      return <AttributesField {...props} />;
     default:
       return <TextField {...props} />;
   }
@@ -172,16 +184,19 @@ export const Form = connect(mapStateToProps)(props => (
         id={field.id}
         label={field.label}
         options={field.options}
+        attributeDefinitions={field.attributeDefinitions}
         type={field.type}
         value={get(props.values, field.name)}
-        onFocus={onFocus({ formKey: props.formKey })}
-        onBlur={onBlur({ formKey: props.formKey })}
+        onFocus={onFocus({ formKey: props.formKey, field: field.name })}
+        onBlur={onBlur({ formKey: props.formKey, field: field.name })}
         onChange={onChange({ fields: props.fields, formKey: props.formKey })}
         dirty={getIn(props.fieldStates, [field.name, 'dirty'])}
         valid={getIn(props.fieldStates, [field.name, 'valid'])}
         focused={getIn(props.fieldStates, [field.name, 'focused'])}
         touched={getIn(props.fieldStates, [field.name, 'touched'])}
         errors={get(props.errors, field.name)}
+        setState={setFormState({ formKey: props.formKey })}
+        state={getIn(props.formState, [field.name])}
       />
     ))}
     <button type="submit">Submit</button>

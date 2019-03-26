@@ -1,5 +1,5 @@
 import React from 'react';
-import { call, put, takeEvery } from 'redux-saga/effects';
+import { all, call, put, takeEvery } from 'redux-saga/effects';
 import { Form, setupForm, teardownForm } from '../Form';
 import {
   connect,
@@ -9,8 +9,9 @@ import {
   selectWaiting,
 } from '../../../store';
 import { fetchUser } from '../../../apis/core';
+import { fetchAttributeDefinitions } from '../../../apis/core/attributeDefinitions';
 
-const fields = ({ locales, timezones }) => [
+const fields = ({ attributeDefinitions, locales, timezones }) => [
   {
     name: 'spaceAdmin',
     label: 'Space Admin',
@@ -55,15 +56,28 @@ const fields = ({ locales, timezones }) => [
     })),
     required: false,
   },
+  {
+    name: 'attributesMap',
+    label: 'Attributes',
+    type: 'attributes',
+    required: false,
+    attributeDefinitions,
+  },
 ];
 
-const values = ({ space, user }) => ({
+const values = ({ attributeDefinitions, space, user }) => ({
   spaceAdmin: user ? user.spaceAdmin : false,
   enabled: user ? user.enabled : true,
   displayName: user ? user.displayName : '',
   email: user ? user.email : '',
   preferredLocale: user ? user.preferredLocale : '',
   timezone: user ? user.timezone : '',
+  attributesMap: user
+    ? user.attributesMap
+    : attributeDefinitions.reduce(
+        (value, { name }) => ({ ...value, [name]: [] }),
+        {},
+      ),
 });
 
 const setup = ({ formKey, username, user }) => {
@@ -82,16 +96,33 @@ const teardown = ({ formKey }) => {
 regSaga(
   takeEvery('USER_FORM/EDIT_USER', function*(action) {
     const { username, formKey } = action.payload;
-    const { user } = yield call(fetchUser, { username, include: 'attributes' });
+    const [{ user }, { attributeDefinitions }] = yield all([
+      call(fetchUser, { username, include: 'attributesMap' }),
+      call(fetchAttributeDefinitions, {
+        attributeType: 'userAttributeDefinitions',
+      }),
+    ]);
     yield put({ type: 'USER_FORM/SET_USER', payload: { formKey, user } });
+    yield put({
+      type: 'USER_FORM/SET_ATTRIBUTE_DEFINITIONS',
+      payload: { formKey, attributeDefinitions },
+    });
     const space = yield selectWaiting(state => state.getIn(['meta', 'space']));
-    yield call(setupForm, { formKey, values: values({ space, user }) });
+    yield call(setupForm, {
+      formKey,
+      values: values({ attributeDefinitions, space, user }),
+    });
   }),
 );
 
 regHandlers({
   'USER_FORM/SET_USER': (state, action) =>
     state.setIn(['forms', action.payload.formKey, 'user'], action.payload.user),
+  'USER_FORM/SET_ATTRIBUTE_DEFINITIONS': (state, action) =>
+    state.setIn(
+      ['forms', action.payload.formKey, 'attributeDefinitions'],
+      action.payload.attributeDefinitions,
+    ),
 });
 
 const mapStateToProps = (state, props) => ({
@@ -99,6 +130,10 @@ const mapStateToProps = (state, props) => ({
   space: state.getIn(['meta', 'space'], null),
   timezones: state.getIn(['meta', 'timezones'], null),
   user: state.getIn(['forms', props.formKey, 'user'], null),
+  attributeDefinitions: state.getIn(
+    ['forms', props.formKey, 'attributeDefinitions'],
+    null,
+  ),
 });
 
 export const UserForm = connect(mapStateToProps)(
@@ -106,7 +141,8 @@ export const UserForm = connect(mapStateToProps)(
     props.locales &&
     props.space &&
     props.timezones &&
-    props.user && (
+    props.user &&
+    props.attributeDefinitions && (
       <Form
         formKey={props.formKey}
         fields={fields(props)}
