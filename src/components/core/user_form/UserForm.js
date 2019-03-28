@@ -11,7 +11,13 @@ import {
 import { fetchTeams, fetchUser } from '../../../apis/core';
 import { fetchAttributeDefinitions } from '../../../apis/core/attributeDefinitions';
 
-const fields = ({ attributeDefinitions, locales, teams, timezones }) => [
+const fields = ({
+  attributeFields,
+  attributeDefinitions,
+  locales,
+  teams,
+  timezones,
+}) => [
   {
     name: 'spaceAdmin',
     label: 'Space Admin',
@@ -56,13 +62,25 @@ const fields = ({ attributeDefinitions, locales, teams, timezones }) => [
     })),
     required: false,
   },
-  {
-    name: 'attributesMap',
-    label: 'Attributes',
-    type: 'attributes',
-    required: false,
-    attributeDefinitions,
-  },
+  ...(attributeFields
+    ? Object.entries(attributeFields).map(([name, config]) => ({
+        name: `attributesMap.${name}`,
+        label: config.label || name,
+        type: attributeDefinitions.find(({ name: defName }) => defName === name)
+          .allowsMultiple
+          ? 'text-multi'
+          : 'text',
+        required: false,
+      }))
+    : [
+        {
+          name: 'attributesMap',
+          label: 'Attributes',
+          type: 'attributes',
+          required: false,
+          attributeDefinitions,
+        },
+      ]),
   {
     name: 'memberships',
     label: 'Teams',

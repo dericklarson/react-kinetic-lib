@@ -1,15 +1,16 @@
 import React from 'react';
-import { fromJS, get, getIn, List, Map } from 'immutable';
+import { fromJS, get, getIn, is, List, Map } from 'immutable';
 import { connect, dispatch, regHandlers } from '../../store';
 import { AttributesField } from './AttributesField';
 import { MembershipsField } from './MembershipsField';
+import { TextMultiField } from './TextMultiField';
 
 export const isEmpty = value =>
   value === null ||
   value === undefined ||
   (value.hasOwnProperty('length') && value.length === 0);
 
-export const equals = (a, b) => fromJS(a).equals(fromJS(b));
+export const equals = (a, b) => is(fromJS(a), fromJS(b));
 
 regHandlers({
   SETUP_FORM: (state, { payload: { formKey, values } }) =>
@@ -26,13 +27,23 @@ regHandlers({
       )
       .setIn(['forms', formKey, 'errors'], Map(values).map(() => List()))
       .setIn(['forms', formKey, 'formState'], Map()),
-  SET_VALUE: (state, { payload: { formKey, field, value } }) =>
+  SET_VALUE: (state, { payload: { formKey, field, type, value } }) =>
     state
-      .setIn(['forms', formKey, 'values', field], value)
+      .updateIn(['forms', formKey, 'values'], values =>
+        setValue(field, type, value, values),
+      )
       .setIn(
         ['forms', formKey, 'fieldStates', field, 'dirty'],
-        !equals(value, state.getIn(['forms', formKey, 'initialValues', field])),
-      ),
+        !equals(
+          value,
+          getValue(
+            field,
+            type,
+            state.getIn(['forms', formKey, 'initialValues']),
+          ),
+        ),
+      )
+      .setIn(['forms', formKey, 'fieldStates', field, 'touched'], true),
   SET_FORM_STATE: (state, { payload: { formKey, path, value } }) =>
     state.setIn(['forms', formKey, 'formState', ...path], value),
   FOCUS_FIELD: (state, { payload: { formKey, field } }) =>
@@ -78,6 +89,7 @@ export const onChange = ({ fields, formKey }) => event => {
     dispatch('SET_VALUE', {
       formKey,
       field: event.target.name,
+      type: event.target.type,
       value: event.target.checked,
     });
   } else if (
@@ -87,12 +99,14 @@ export const onChange = ({ fields, formKey }) => event => {
     dispatch('SET_VALUE', {
       formKey,
       field: event.target.name,
+      type: event.target.type,
       value: event.target.value,
     });
   } else {
     dispatch('SET_VALUE', {
       formKey,
       field: event.target.name,
+      type: event.target.type,
       value: event.target.value,
     });
   }
@@ -176,36 +190,59 @@ export const Field = props => {
       return <AttributesField {...props} />;
     case 'memberships':
       return <MembershipsField {...props} />;
+    case 'text-multi':
+      return <TextMultiField {...props} />;
     default:
       return <TextField {...props} />;
   }
 };
 
+export const setValue = (name, type, value, values) =>
+  name.startsWith('attributesMap.')
+    ? type.endsWith('-multi')
+      ? values.setIn(
+          ['attributesMap', name.replace('attributesMap.', '')],
+          value,
+        )
+      : values.setIn(
+          ['attributesMap', name.replace('attributesMap.', '')],
+          [value],
+        )
+    : values.set(name, value);
+
+export const getValue = (name, type, values) =>
+  name.startsWith('attributesMap.')
+    ? type.endsWith('-multi')
+      ? values.getIn(['attributesMap', name.replace('attributesMap.', '')])
+      : values.getIn(['attributesMap', name.replace('attributesMap.', ''), 0])
+    : values.get(name);
+
 export const Form = connect(mapStateToProps)(props => (
   <form onSubmit={onSubmit(props.onSubmit, props.values)}>
-    {props.fields.map(field => (
-      <Field
-        key={field.name}
-        name={field.name}
-        id={field.id}
-        label={field.label}
-        options={field.options}
-        attributeDefinitions={field.attributeDefinitions}
-        teams={field.teams}
-        type={field.type}
-        value={get(props.values, field.name)}
-        onFocus={onFocus({ formKey: props.formKey, field: field.name })}
-        onBlur={onBlur({ formKey: props.formKey, field: field.name })}
-        onChange={onChange({ fields: props.fields, formKey: props.formKey })}
-        dirty={getIn(props.fieldStates, [field.name, 'dirty'])}
-        valid={getIn(props.fieldStates, [field.name, 'valid'])}
-        focused={getIn(props.fieldStates, [field.name, 'focused'])}
-        touched={getIn(props.fieldStates, [field.name, 'touched'])}
-        errors={get(props.errors, field.name)}
-        setState={setFormState({ formKey: props.formKey })}
-        state={getIn(props.formState, [field.name])}
-      />
-    ))}
+    {props.values &&
+      props.fields.map(field => (
+        <Field
+          key={field.name}
+          name={field.name}
+          id={field.id}
+          label={field.label}
+          options={field.options}
+          attributeDefinitions={field.attributeDefinitions}
+          teams={field.teams}
+          type={field.type}
+          value={getValue(field.name, field.type, props.values)}
+          onFocus={onFocus({ formKey: props.formKey, field: field.name })}
+          onBlur={onBlur({ formKey: props.formKey, field: field.name })}
+          onChange={onChange({ fields: props.fields, formKey: props.formKey })}
+          dirty={getIn(props.fieldStates, [field.name, 'dirty'])}
+          valid={getIn(props.fieldStates, [field.name, 'valid'])}
+          focused={getIn(props.fieldStates, [field.name, 'focused'])}
+          touched={getIn(props.fieldStates, [field.name, 'touched'])}
+          errors={get(props.errors, field.name)}
+          setState={setFormState({ formKey: props.formKey })}
+          state={getIn(props.formState, [field.name])}
+        />
+      ))}
     <button type="submit">Submit</button>
   </form>
 ));
