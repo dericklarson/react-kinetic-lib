@@ -1,11 +1,11 @@
 import React from 'react';
 import { get, List } from 'immutable';
 
-const onSelectChange = (name, setState) => event => {
-  setState([name, 'select'], event.target.value);
+const onSelectChange = setCustom => event => {
+  setCustom(['select'], event.target.value);
 };
 
-const add = (name, value, onChange, teamName, setState) => () => {
+const add = (name, value, onChange, teamName, setCustom) => () => {
   onChange({
     target: {
       name,
@@ -13,7 +13,7 @@ const add = (name, value, onChange, teamName, setState) => () => {
       value: [...value, { team: { name: teamName } }],
     },
   });
-  setState([name, 'select'], '');
+  setCustom(['select'], '');
 };
 
 const remove = (name, value, onChange, onBlur, team) => () => {
@@ -29,7 +29,7 @@ const remove = (name, value, onChange, onBlur, team) => () => {
 
 export const MembershipsField = props => {
   if (props.value) {
-    const selectValue = get(props.state, 'select', '');
+    const selectValue = get(props.custom, 'select', '');
     const selectableTeams = props.teams
       .map(team => team.name)
       .filter(name => !props.value.find(mem => mem.team.name === name));
@@ -67,7 +67,7 @@ export const MembershipsField = props => {
                   value={selectValue}
                   onFocus={props.onFocus}
                   onBlur={props.onBlur}
-                  onChange={onSelectChange(props.name, props.setState)}
+                  onChange={onSelectChange(props.setCustom)}
                 >
                   <option />
                   {selectableTeams.map(team => (
@@ -88,7 +88,7 @@ export const MembershipsField = props => {
                     props.value,
                     props.onChange,
                     selectValue,
-                    props.setState,
+                    props.setCustom,
                   )}
                 >
                   +

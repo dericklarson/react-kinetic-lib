@@ -2,8 +2,8 @@ import { fromJS, get, Map, setIn } from 'immutable';
 import React from 'react';
 import { isEmpty } from './Form';
 
-const onSelectChange = (setState, name) => event => {
-  setState([name, 'select'], event.target.value);
+const onSelectChange = setCustom => event => {
+  setCustom(['select'], event.target.value);
 };
 
 const onEditInputChange = (name, value, onChange, attrName, index) => event => {
@@ -16,8 +16,8 @@ const onEditInputChange = (name, value, onChange, attrName, index) => event => {
   });
 };
 
-const onNewInputChange = (setState, name) => event => {
-  setState([name, 'input'], event.target.value);
+const onNewInputChange = setCustom => event => {
+  setCustom(['input'], event.target.value);
 };
 
 const remove = (name, value, onChange, onBlur, attrName, index) => () => {
@@ -33,7 +33,7 @@ const remove = (name, value, onChange, onBlur, attrName, index) => () => {
   onBlur();
 };
 
-const add = (name, value, onChange, setState, attrName, attrValue) => () => {
+const add = (name, value, onChange, setCustom, attrName, attrValue) => () => {
   onChange({
     target: {
       type: 'attributes',
@@ -44,8 +44,8 @@ const add = (name, value, onChange, setState, attrName, attrValue) => () => {
       },
     },
   });
-  setState([name, 'select'], '');
-  setState([name, 'input'], '');
+  setCustom(['select'], '');
+  setCustom(['input'], '');
 };
 
 export const AttributesField = props => {
@@ -56,8 +56,8 @@ export const AttributesField = props => {
       .flatMap(([name, values]) =>
         values.map((value, index) => ({ name, value, index })),
       );
-    const selectValue = get(props.state, 'select', '');
-    const inputValue = get(props.state, 'input', '');
+    const selectValue = get(props.custom, 'select', '');
+    const inputValue = get(props.custom, 'input', '');
     const selectableAttributes = props.attributeDefinitions
       .filter(
         ({ allowsMultiple, name }) =>
@@ -119,7 +119,7 @@ export const AttributesField = props => {
                   value={selectValue}
                   onFocus={props.onFocus}
                   onBlur={props.onBlur}
-                  onChange={onSelectChange(props.setState, props.name)}
+                  onChange={onSelectChange(props.setCustom)}
                 >
                   <option />
                   {selectableAttributes.map(name => (
@@ -134,7 +134,7 @@ export const AttributesField = props => {
                   type="text"
                   onFocus={props.onFocus}
                   onBlur={props.onBlur}
-                  onChange={onNewInputChange(props.setState, props.name)}
+                  onChange={onNewInputChange(props.setCustom)}
                   value={inputValue}
                 />
               </td>
@@ -148,7 +148,7 @@ export const AttributesField = props => {
                     props.name,
                     props.value,
                     props.onChange,
-                    props.setState,
+                    props.setCustom,
                     selectValue,
                     inputValue,
                   )}

@@ -1,18 +1,50 @@
 import React from 'react';
-import { all, call, put, takeEvery } from 'redux-saga/effects';
 import { Form, setupForm, teardownForm } from '../Form';
-import {
-  connect,
-  dispatch,
-  regSaga,
-  regHandlers,
-  selectWaiting,
-} from '../../../store';
-import { fetchTeams, fetchUser } from '../../../apis/core';
+import { fetchSpace, fetchTeams, fetchUser } from '../../../apis/core';
+import { fetchLocales, fetchTimezones } from '../../../apis/core/meta';
 import { fetchAttributeDefinitions } from '../../../apis/core/attributeDefinitions';
 
-const fields = ({
-  attributeFields,
+const secondThing = user => {
+  console.log('>>> second thing >>>', user);
+  return new Promise(resolve => {
+    setTimeout(() => {
+      console.log('<<< second thing <<<', user);
+      resolve(2);
+    });
+  });
+};
+
+const dataSources = ({ user, username }) => ({
+  space: [
+    fetchSpace,
+    [{ include: 'attributesMap' }],
+    { shared: true, cache: 3600, transform: result => result.space },
+  ],
+  locales: [
+    fetchLocales,
+    [],
+    { shared: true, cache: true, transform: result => result.data.locales },
+  ],
+  timezones: [
+    fetchTimezones,
+    [],
+    { shared: true, cache: true, transform: result => result.data.timezones },
+  ],
+  user: [
+    fetchUser,
+    [{ username, include: 'attributesMap,memberships' }],
+    { transform: result => result.user },
+  ],
+  attributeDefinitions: [
+    fetchAttributeDefinitions,
+    [{ attributeType: 'userAttributeDefinitions' }],
+    { transform: result => result.attributeDefinitions },
+  ],
+  teams: [fetchTeams, [], { transform: result => result.teams }],
+  secondThing: [secondThing, ({ user }) => [user], { dependencies: ['user'] }],
+});
+
+const fields = ({ attributeFields }) => ({
   attributeDefinitions,
   locales,
   teams,
@@ -71,6 +103,7 @@ const fields = ({
           ? 'text-multi'
           : 'text',
         required: false,
+        component: config.component,
       }))
     : [
         {
@@ -90,7 +123,7 @@ const fields = ({
   },
 ];
 
-const values = ({ attributeDefinitions, space, user }) => ({
+const initialValues = ({ attributeDefinitions, space, user }) => ({
   spaceAdmin: user ? user.spaceAdmin : false,
   enabled: user ? user.enabled : true,
   displayName: user ? user.displayName : '',
@@ -110,87 +143,27 @@ const values = ({ attributeDefinitions, space, user }) => ({
     : [],
 });
 
-const setup = ({ formKey, username, user }) => {
-  dispatch('FETCH_SPACE');
-  dispatch('FETCH_LOCALES');
-  dispatch('FETCH_TIMEZONES');
-  if (username) {
-    dispatch('USER_FORM/EDIT_USER', { formKey, username });
-  }
+const setup = ({ formKey, username, attributeFields }) => {
+  setupForm({
+    formKey,
+    dataSources: dataSources({ username }),
+    fields: fields({ attributeFields }),
+    initialValues,
+  });
 };
 
 const teardown = ({ formKey }) => {
   teardownForm({ formKey });
 };
 
-regSaga(
-  takeEvery('USER_FORM/EDIT_USER', function*(action) {
-    const { username, formKey } = action.payload;
-    const [{ user }, { attributeDefinitions }, { teams }] = yield all([
-      call(fetchUser, { username, include: 'attributesMap,memberships' }),
-      call(fetchAttributeDefinitions, {
-        attributeType: 'userAttributeDefinitions',
-      }),
-      call(fetchTeams),
-    ]);
-    yield put({ type: 'USER_FORM/SET_USER', payload: { formKey, user } });
-    yield put({
-      type: 'USER_FORM/SET_ATTRIBUTE_DEFINITIONS',
-      payload: { formKey, attributeDefinitions },
-    });
-    yield put({
-      type: 'USER_FORM/SET_TEAMS',
-      payload: { formKey, teams },
-    });
-    const space = yield selectWaiting(state => state.getIn(['meta', 'space']));
-    yield call(setupForm, {
-      formKey,
-      values: values({ attributeDefinitions, space, teams, user }),
-    });
-  }),
-);
+const mapStateToProps = (state, props) => ({});
 
-regHandlers({
-  'USER_FORM/SET_USER': (state, action) =>
-    state.setIn(['forms', action.payload.formKey, 'user'], action.payload.user),
-  'USER_FORM/SET_ATTRIBUTE_DEFINITIONS': (state, action) =>
-    state.setIn(
-      ['forms', action.payload.formKey, 'attributeDefinitions'],
-      action.payload.attributeDefinitions,
-    ),
-  'USER_FORM/SET_TEAMS': (state, action) =>
-    state.setIn(
-      ['forms', action.payload.formKey, 'teams'],
-      action.payload.teams,
-    ),
-});
-
-const mapStateToProps = (state, props) => ({
-  locales: state.getIn(['meta', 'locales'], null),
-  space: state.getIn(['meta', 'space'], null),
-  teams: state.getIn(['forms', props.formKey, 'teams'], null),
-  timezones: state.getIn(['meta', 'timezones'], null),
-  user: state.getIn(['forms', props.formKey, 'user'], null),
-  attributeDefinitions: state.getIn(
-    ['forms', props.formKey, 'attributeDefinitions'],
-    null,
-  ),
-});
-
-export const UserForm = connect(mapStateToProps)(
-  props =>
-    props.locales &&
-    props.space &&
-    props.teams &&
-    props.timezones &&
-    props.user &&
-    props.attributeDefinitions && (
-      <Form
-        formKey={props.formKey}
-        fields={fields(props)}
-        onSubmit={props.onSubmit}
-      />
-    ),
+export const UserForm = props => (
+  <Form
+    formKey={props.formKey}
+    onSubmit={props.onSubmit}
+    components={props.components || {}}
+  />
 );
 
 UserForm.setup = setup;

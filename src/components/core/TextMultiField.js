@@ -1,11 +1,11 @@
 import React from 'react';
 import { get } from 'immutable';
 
-const onInputChange = (name, setState) => event => {
-  setState([name, 'input'], event.target.value);
+const onInputChange = setCustom => event => {
+  setCustom(['input'], event.target.value);
 };
 
-const add = (name, values, onChange, value, setState) => () => {
+const add = (name, values, onChange, value, setCustom) => () => {
   onChange({
     target: {
       name,
@@ -13,10 +13,10 @@ const add = (name, values, onChange, value, setState) => () => {
       value: [...values, value],
     },
   });
-  setState([name, 'input'], '');
+  setCustom(['input'], '');
 };
 
-const remove = (name, values, onChange, index) => () => {
+const remove = (name, values, onChange) => index => () => {
   onChange({
     target: {
       name,
@@ -26,50 +26,56 @@ const remove = (name, values, onChange, index) => () => {
   });
 };
 
-export const TextMultiField = props => {
-  if (props.value) {
-    const inputValue = get(props.state, 'input', '');
-    return (
-      <div className="field">
-        {props.label}
-        {props.value.map((v, i) => (
-          <span key={i}>
-            {v}
-            <button
-              type="button"
-              onFocus={props.onFocus}
-              onBlur={props.onBlur}
-              onClick={remove(props.name, props.value, props.onChange, i)}
-            >
-              x
-            </button>
-          </span>
-        ))}
-        <input
-          type="text"
-          value={inputValue}
-          onFocus={props.onFocus}
-          onBlur={props.onBlur}
-          onChange={onInputChange(props.name, props.setState)}
-        />
+export const TextMultiFieldDefault = props => (
+  <div className="field">
+    {props.label}
+    {props.value.map((v, i) => (
+      <span key={i}>
+        {v}
         <button
           type="button"
-          disabled={!inputValue}
           onFocus={props.onFocus}
           onBlur={props.onBlur}
-          onClick={add(
-            props.name,
-            props.value,
-            props.onChange,
-            inputValue,
-            props.setState,
-          )}
+          onClick={() => props.remove(i)}
         >
-          +
+          x
         </button>
-      </div>
-    );
-  } else {
-    return null;
-  }
-};
+      </span>
+    ))}
+    <input
+      type="text"
+      value={props.inputValue}
+      onFocus={props.onFocus}
+      onBlur={props.onBlur}
+      onChange={props.inputChange}
+    />
+    <button
+      type="button"
+      disabled={!props.inputValue}
+      onFocus={props.onFocus}
+      onBlur={props.onBlur}
+      onClick={props.add}
+    >
+      +
+    </button>
+  </div>
+);
+
+export const TextMultiField = ({
+  component: TextMultiFieldImpl = TextMultiFieldDefault,
+  ...props
+}) => (
+  <TextMultiFieldImpl
+    {...props}
+    inputValue={get(props.custom, 'input', '')}
+    inputChange={onInputChange(props.setCustom)}
+    remove={remove(props.name, props.value, props.onChange)}
+    add={add(
+      props.name,
+      props.value,
+      props.onChange,
+      get(props.custom, 'input', ''),
+      props.setCustom,
+    )}
+  />
+);
