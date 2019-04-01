@@ -20,7 +20,7 @@ const baseUrl = () => `${bundle.spaceLocation()}/app/discussions`;
 /**
  * Send a message to a discussion.
  *
- * @param {object} params message parameters
+ * @param {object} params message parameters.
  * @param {string} params.id the discussion id to send the message to.
  * @param {string} params.message message text to send.
  * @param {string} params.parentId the id of the parent message.
@@ -61,6 +61,15 @@ export const sendMessage = params => {
   }
 };
 
+/**
+ * Update a discussion message.
+ *
+ * @param {object} params message parameters.
+ * @param {string} params.id the message id to update.
+ * @param {string} params.message message text to send.
+ * @param {string} params.discussionId the discussion id to send the message to.
+ * @param {array} params.attachment an array of File objects to attach.
+ */
 export const updateMessage = params => {
   const attachments = params.attachment || [];
 
@@ -93,6 +102,12 @@ export const updateMessage = params => {
   });
 };
 
+/**
+ * Retrieve messages for a discussion.
+ *
+ * @param {string} id discussion id to retrieve messages for.
+ * @param {string} pageToken next page token for paginated results.
+ */
 export const fetchMessages = (id, pageToken) =>
   axios
     .request({
@@ -106,6 +121,13 @@ export const fetchMessages = (id, pageToken) =>
     .then(response => response.data)
     .catch(response => ({ error: response }));
 
+/**
+ * Fetch a message.
+ *
+ * @param {object} params fetch message params.
+ * @param {string} params.discussionId discussion id message belongs to
+ * @param {string} params.id id of message to fetch
+ */
 export const fetchMessage = ({ discussionId, id }) =>
   axios
     .request({
@@ -115,6 +137,13 @@ export const fetchMessage = ({ discussionId, id }) =>
     .then(response => response.data)
     .catch(response => ({ error: response }));
 
+/**
+ * Fetch the history of a message for a discussion.
+ *
+ * @param {object} params fetch message params.
+ * @param {string} params.discussionId discussion id message belongs to.
+ * @param {string} params.id id of message to fetch.
+ */
 export const fetchMessageHistory = ({ discussionId, id }) =>
   axios
     .request({
@@ -126,8 +155,9 @@ export const fetchMessageHistory = ({ discussionId, id }) =>
 
 /**
  * Fetch a discussion by `id`.
- * @param {object} params fetch parameters
- * @param {string} params.id the discussion id
+ *
+ * @param {object} params fetch parameters.
+ * @param {string} params.id the discussion id.
  */
 export const fetchDiscussion = ({ id }) =>
   axios
@@ -141,10 +171,15 @@ export const fetchDiscussion = ({ id }) =>
 /**
  * Fetch discussions based upon parameters.
  *
- * @param {object} params fetch parameters
- * @param {string} params.pageToken next page token for paginated results
- * @param {object} params.relatedItem search for discussions based upon related item
+ * @param {object} params fetch parameters.
+ * @param {string} params.pageToken next page token for paginated results.
+ * @param {string} params.title the name of the discussion.
+ * @param {object} params.relatedItem search for discussions based upon related item.
+ * @param {boolean} params.isArchived flag whether discussion is archived or not.
+ * @param {string} params.start params.start the date to begin the search from.
+ * @param {string} params.end params.end the date to search until.
  */
+
 export const fetchDiscussions = ({
   pageToken,
   title,
@@ -170,6 +205,19 @@ export const fetchDiscussions = ({
     .then(response => response.data)
     .catch(response => ({ error: response }));
 };
+
+/**
+ * Start a discussion.
+ *
+ * @param {object} params discussion params.
+ * @param {string} params.title the name of the discussion.
+ * @param {string} params.description a description of the discussion.
+ * @param {boolean} params.isPrivate a flag whether the discussion should be private or not
+ * @param {array} params.owningUsers a list of users that own the discussion.
+ * @param {array} params.owningTeams a list of teams that own the discussion.
+ * @param {string} params.joinPolicy the name of the security policy that identifies who can join without an invite.
+ *
+ */
 export const createDiscussion = ({
   title,
   description,

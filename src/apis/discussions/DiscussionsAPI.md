@@ -6,7 +6,7 @@ Send a message to a discussion.
 
 ### Parameters
 
--   `params` **[object][1]** message parameters
+-   `params` **[object][1]** message parameters.
     -   `params.id` **[string][2]** the discussion id to send the message to.
     -   `params.message` **[string][2]** message text to send.
     -   `params.parentId` **[string][2]** the id of the parent message.
@@ -14,38 +14,44 @@ Send a message to a discussion.
 
 ## updateMessage
 
-### Parameters
-
--   `params`  
-
-## deleteMessage
+Update a discussion message.
 
 ### Parameters
 
--   `params`  
+-   `params` **[object][1]** message parameters.
+    -   `params.id` **[string][2]** the message id to update.
+    -   `params.message` **[string][2]** message text to send.
+    -   `params.discussionId` **[string][2]** the discussion id to send the message to.
+    -   `params.attachment` **[array][3]** an array of File objects to attach.
 
 ## fetchMessages
 
+Retrieve messages for a discussion.
+
 ### Parameters
 
--   `id`  
--   `pageToken`  
+-   `id` **[string][2]** discussion id to retrieve messages for.
+-   `pageToken` **[string][2]** next page token for paginated results.
 
 ## fetchMessage
 
+Fetch a message.
+
 ### Parameters
 
--   `$0` **[Object][1]** 
-    -   `$0.discussionId`  
-    -   `$0.id`  
+-   `params` **[object][1]** fetch message params.
+    -   `params.discussionId` **[string][2]** discussion id message belongs to
+    -   `params.id` **[string][2]** id of message to fetch
 
 ## fetchMessageHistory
 
+Fetch the history of a message for a discussion.
+
 ### Parameters
 
--   `$0` **[Object][1]** 
-    -   `$0.discussionId`  
-    -   `$0.id`  
+-   `params` **[object][1]** fetch message params.
+    -   `params.discussionId` **[string][2]** discussion id message belongs to.
+    -   `params.id` **[string][2]** id of message to fetch.
 
 ## fetchDiscussion
 
@@ -53,8 +59,8 @@ Fetch a discussion by `id`.
 
 ### Parameters
 
--   `params` **[object][1]** fetch parameters
-    -   `params.id` **[string][2]** the discussion id
+-   `params` **[object][1]** fetch parameters.
+    -   `params.id` **[string][2]** the discussion id.
 
 ## fetchDiscussions
 
@@ -62,25 +68,27 @@ Fetch discussions based upon parameters.
 
 ### Parameters
 
--   `params` **[object][1]** fetch parameters
-    -   `params.pageToken` **[string][2]** next page token for paginated results
-    -   `params.relatedItem` **[object][1]** search for discussions based upon related item (optional, default `{}`)
-    -   `params.title`  
-    -   `params.isArchived`  
-    -   `params.start`  
-    -   `params.end`  
+-   `params` **[object][1]** fetch parameters.
+    -   `params.pageToken` **[string][2]** next page token for paginated results.
+    -   `params.title` **[string][2]** the name of the discussion.
+    -   `params.relatedItem` **[object][1]** search for discussions based upon related item. (optional, default `{}`)
+    -   `params.isArchived` **[boolean][4]** flag whether discussion is archived or not.
+    -   `params.start` **[string][2]** params.start the date to begin the search from.
+    -   `params.end` **[string][2]** params.end the date to search until.
 
 ## createDiscussion
 
+Start a discussion.
+
 ### Parameters
 
--   `$0` **[Object][1]** 
-    -   `$0.title`  
-    -   `$0.description`  
-    -   `$0.isPrivate`   (optional, default `false`)
-    -   `$0.owningUsers`  
-    -   `$0.owningTeams`  
-    -   `$0.joinPolicy`  
+-   `params` **[object][1]** discussion params.
+    -   `params.title` **[string][2]** the name of the discussion.
+    -   `params.description` **[string][2]** a description of the discussion.
+    -   `params.isPrivate` **[boolean][4]** a flag whether the discussion should be private or not (optional, default `false`)
+    -   `params.owningUsers` **[array][3]** a list of users that own the discussion.
+    -   `params.owningTeams` **[array][3]** a list of teams that own the discussion.
+    -   `params.joinPolicy` **[string][2]** the name of the security policy that identifies who can join without an invite.
 
 ## updateDiscussion
 
@@ -163,3 +171,5 @@ Fetch discussions based upon parameters.
 [2]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String
 
 [3]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array
+
+[4]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean
