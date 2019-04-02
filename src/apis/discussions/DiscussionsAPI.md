@@ -84,7 +84,7 @@ Start a discussion.
 
 -   `params` **[object][1]** discussion params.
     -   `params.title` **[string][2]** the name of the discussion.
-    -   `params.description` **[string][2]** a description of the discussion.
+    -   `params.description` **[string][2]** a description of the discussiogit n.
     -   `params.isPrivate` **[boolean][4]** a flag whether the discussion should be private or not (optional, default `false`)
     -   `params.owningUsers` **[array][3]** a list of users that own the discussion.
     -   `params.owningTeams` **[array][3]** a list of teams that own the discussion.
@@ -92,79 +92,129 @@ Start a discussion.
 
 ## updateDiscussion
 
+Update a discussion by `id`.
+
 ### Parameters
 
--   `id`  
--   `data`  
+-   `id` **[string][2]** the discussion id.
+-   `data` **[object][1]** the payload that will be sent with the update.
 
 ## fetchInvites
 
+Get a list of invites to the discussion.
+
 ### Parameters
 
--   `id`  
+-   `id` **[string][2]** the discussion id.
 
 ## createInvite
 
+Send an invite out to a user or a user's email.
+
 ### Parameters
 
--   `$0` **[Object][1]** 
-    -   `$0.discussionId`  
-    -   `$0.type`  
-    -   `$0.value`  
-    -   `$0.message`  
+-   `params` **[object][1]** invite parameters.
+    -   `params.discussionId` **[string][2]** the discussion id.
+    -   `params.type` **[string][2]** either email or user.
+    -   `params.value`  
+    -   `params.message`  
 
 ## resendInvite
 
+Send another invite out to a user or a user's email.
+
 ### Parameters
 
--   `$0` **[Object][1]** 
-    -   `$0.discussionId`  
-    -   `$0.email`  
-    -   `$0.username`  
+-   `params` **[object][1]** invite parameters.
+    -   `params.discussionId` **[string][2]** the discussion id.
+    -   `params.email` **[string][2]** the email address of the recipient.
+    -   `params.username` **[string][2]** the username of the invitee.
 
 ## removeInvite
 
+Detele and invite sent to a participant.
+
 ### Parameters
 
--   `$0` **[Object][1]** 
-    -   `$0.discussionId`  
-    -   `$0.email`  
-    -   `$0.username`  
+-   `params` **[object][1]** invite parameters.
+    -   `params.discussionId` **[string][2]** the discussion id.
+    -   `params.email` **[string][2]** the email address of the participant.
+    -   `params.username` **[string][2]** the username of the participant.
 
 ## fetchParticipants
 
+Get a list of users that have access to the discussion.
+
 ### Parameters
 
--   `id`  
+-   `id` **[string][2]** the discussion id.
 
 ## removeParticipant
 
+remove a user from the discussion.
+
 ### Parameters
 
--   `id`  
--   `username`  
+-   `id` **any** the discussion id.
+-   `username` **any** the name of the participant to be removed.
 
 ## updateParticipant
 
+Update participant.
+
 ### Parameters
 
--   `id`  
--   `username`  
--   `data`  
+-   `id` **[string][2]** the discussion id.
+-   `username` **[string][2]** the participant's username.
+-   `data` **[object][1]** the payload to update the participant.
 
 ## createRelatedItem
 
+Relate the discussion to an item. i.e. A team.
+Later discussions can be searched by their related items.
+
+Example of a relatedItem object
+
+<pre>
+ {
+   type: "Datastore Form",
+   key: search-history
+ }
+</pre>
+
+Configuration options
+
+| type                 | key                     |
+| -------------------- | ----------------------- |
+| Datastore Form       | datastore form slug     |
+| Datastore submission | submission id           |
+| Form                 | kapp slug "/" form slug |
+| Kapp                 | kapp slug               |
+| Space                | space slug              |
+| Submission           | submission id           |
+| Team                 | team slug               |
+| User                 | username                |
+
 ### Parameters
 
--   `id`  
--   `relatedItem`  
+-   `id` **[string][2]** the discussion id.
+-   `relatedItem` **[object][1]** the payload to relate the discussion to.
+    -   `relatedItem.key` **[string][2]** 
+    -   `relatedItem.type` **[string][2]** the
 
 ## sendInvites
 
+Invite multiple participants to a discussion.
+
 ### Parameters
 
--   `discussion`  
--   `values`  
+-   `discussion` **[object][1]** the discussion parameters.
+    -   `discussion.id` **[string][2]** the id of the dicussion.
+    -   `discussion.participants` **[array][3]** the list of users that have accepted an invitation.
+    -   `discussion.invitations` **[array][3]** the list of invitations that have been sent.
+-   `values` **[object][1]** 
+    -   `values.invitees` **[array][3]** the list of user that will get invited to the discussion.
+    -   `values.message` **[string][2]** the message that will be sent with the email
 
 [1]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object
 

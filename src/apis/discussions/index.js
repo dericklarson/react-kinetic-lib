@@ -211,7 +211,7 @@ export const fetchDiscussions = ({
  *
  * @param {object} params discussion params.
  * @param {string} params.title the name of the discussion.
- * @param {string} params.description a description of the discussion.
+ * @param {string} params.description a description of the discussiogit n.
  * @param {boolean} params.isPrivate a flag whether the discussion should be private or not
  * @param {array} params.owningUsers a list of users that own the discussion.
  * @param {array} params.owningTeams a list of teams that own the discussion.
@@ -243,6 +243,12 @@ export const createDiscussion = ({
     .then(response => response.data)
     .catch(response => ({ error: response }));
 
+/**
+ * Update a discussion by `id`.
+ *
+ * @param {string} id the discussion id.
+ * @param {object} data the payload that will be sent with the update.
+ */
 export const updateDiscussion = (id, data) =>
   axios
     .request({
@@ -253,6 +259,11 @@ export const updateDiscussion = (id, data) =>
     .then(response => response.data)
     .catch(response => ({ error: response }));
 
+/**
+ * Get a list of invites to the discussion.
+ *
+ * @param {string} id the discussion id.
+ */
 export const fetchInvites = id =>
   axios
     .request({
@@ -262,6 +273,15 @@ export const fetchInvites = id =>
     .then(response => response.data)
     .catch(response => ({ error: response }));
 
+/**
+ * Send an invite out to a user or a user's email.
+ *
+ * @param {object} params invite parameters.
+ * @param {string} params.discussionId the discussion id.
+ * @param {string} params.type either email or user.
+ * @param {} params.value
+ * @param {} params.message the message that will be sent with the email
+ */
 export const createInvite = ({ discussionId, type, value, message }) =>
   axios
     .request({
@@ -275,6 +295,14 @@ export const createInvite = ({ discussionId, type, value, message }) =>
     .then(response => response.data)
     .catch(response => ({ error: response }));
 
+/**
+ * Send another invite out to a user or a user's email.
+ *
+ * @param {object} params invite parameters.
+ * @param {string} params.discussionId the discussion id.
+ * @param {string} params.email the email address of the recipient.
+ * @param {string} params.username the username of the invitee.
+ */
 export const resendInvite = ({ discussionId, email, username }) =>
   axios
     .request({
@@ -290,6 +318,14 @@ export const resendInvite = ({ discussionId, email, username }) =>
     .then(response => response.data)
     .catch(response => ({ error: response }));
 
+/**
+ * Detele and invite sent to a participant.
+ *
+ * @param {object} params invite parameters.
+ * @param {string} params.discussionId the discussion id.
+ * @param {string} params.email the email address of the participant.
+ * @param {string} params.username the username of the participant.
+ */
 export const removeInvite = ({ discussionId, email, username }) =>
   axios
     .request({
@@ -304,6 +340,11 @@ export const removeInvite = ({ discussionId, email, username }) =>
     .then(response => response.data)
     .catch(response => ({ error: response }));
 
+/**
+ * Get a list of users that have access to the discussion.
+ *
+ * @param {string} id the discussion id.
+ */
 export const fetchParticipants = id =>
   axios
     .request({
@@ -313,6 +354,12 @@ export const fetchParticipants = id =>
     .then(response => response.data)
     .catch(response => ({ error: response }));
 
+/**
+ * Remove a user from the discussion.
+ *
+ * @param {*} id the discussion id.
+ * @param {*} username the name of the participant to be removed.
+ */
 export const removeParticipant = (id, username) =>
   axios
     .request({
@@ -322,6 +369,13 @@ export const removeParticipant = (id, username) =>
     .then(response => response.data)
     .catch(response => ({ error: response }));
 
+/**
+ * Update participant.
+ *
+ * @param {string} id the discussion id.
+ * @param {string} username the participant's username.
+ * @param {object} data the payload to update the participant.
+ */
 export const updateParticipant = (id, username, data) =>
   axios
     .request({
@@ -332,6 +386,36 @@ export const updateParticipant = (id, username, data) =>
     .then(response => response.data)
     .catch(response => ({ error: response }));
 
+/**
+ * Relate the discussion to an item. i.e. A team.
+ * Later discussions can be searched by their related items.
+ *
+ * Example of a relatedItem object
+ * <pre>
+ *  {
+ *    type: "Datastore Form",
+ *    key: search-history
+ *  }
+ * </pre>
+ *
+ * Configuration options
+ *
+ * | type | key |
+ * |-----|-----|
+ * | Datastore Form | datastore form slug |
+ * | Datastore submission | submission id |
+ * | Form | kapp slug "/" form slug |
+ * | Kapp | kapp slug |
+ * | Space | space slug |
+ * | Submission | submission id |
+ * | Team | team slug |
+ * | User | username |
+ *
+ * @param {string} id the discussion id.
+ * @param {object} relatedItem the payload to relate the discussion to.
+ * @param {string} relatedItem.key
+ * @param {string} relatedItem.type the
+ */
 export const createRelatedItem = (id, relatedItem) =>
   axios
     .request({
@@ -342,6 +426,18 @@ export const createRelatedItem = (id, relatedItem) =>
     .then(response => response.data)
     .catch(response => ({ error: response }));
 
+/**
+ * Invite multiple participants to a discussion.
+ *
+ * @param {object} discussion the discussion parameters.
+ * @param {string} discussion.id the id of the dicussion.
+ * @param {array} discussion.participants the list of users that have accepted an invitation.
+ * @param {array} discussion.invitations the list of invitations that have been sent.
+ * @param {object} values
+ * @param {array} values.invitees the list of user that will get invited to the discussion.
+ * @param {string} values.message the message that will be sent with the email
+ * @returns
+ */
 export const sendInvites = (discussion, values) => {
   const participants = discussion.participants || List();
   const invitations = discussion.invitations || List();
