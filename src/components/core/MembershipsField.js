@@ -1,5 +1,5 @@
 import React from 'react';
-import { get, List } from 'immutable';
+import { fromJS, get } from 'immutable';
 
 const onSelectChange = setCustom => event => {
   setCustom(['select'], event.target.value);
@@ -10,96 +10,108 @@ const add = (name, value, onChange, teamName, setCustom) => () => {
     target: {
       name,
       type: 'memberships',
-      value: [...value, { team: { name: teamName } }],
+      value: value.push(fromJS({ team: { name: teamName } })),
     },
   });
   setCustom(['select'], '');
 };
 
-const remove = (name, value, onChange, onBlur, team) => () => {
+const remove = (name, value, onChange) => team => () => {
   onChange({
     target: {
       name,
       type: 'memberships',
-      value: value.filter(membership => membership.team.name !== team),
+      value: value.filter(
+        membership => membership.getIn(['team', 'name']) !== team.get('name'),
+      ),
     },
   });
-  onBlur();
 };
 
-export const MembershipsField = props => {
-  if (props.value) {
-    const selectValue = get(props.custom, 'select', '');
-    const selectableTeams = props.teams
-      .map(team => team.name)
-      .filter(name => !props.value.find(mem => mem.team.name === name));
-    return (
-      <div className="field">
-        {props.teams ? 'Teams' : 'Users'}
-        <table>
-          <tbody>
-            {List(props.value)
-              .sortBy(membership => membership.team.name)
-              .map((membership, index) => (
-                <tr key={index}>
-                  <td>{membership.team.name}</td>
-                  <td>
-                    <button
-                      type="button"
-                      onFocus={props.onFocus}
-                      onBlur={props.onBlur}
-                      onClick={remove(
-                        props.name,
-                        props.value,
-                        props.onChange,
-                        props.onBlur,
-                        membership.team.name,
-                      )}
-                    >
-                      x
-                    </button>
-                  </td>
-                </tr>
+const MembershipsFieldDefault = props => (
+  <div className="field">
+    {props.teams ? 'Teams' : 'Users'}
+    <table>
+      <tbody>
+        {props.selectedTeams.map(team => (
+          <tr key={team.get('name')}>
+            <td>{team.get('name')}</td>
+            <td>
+              <button
+                type="button"
+                onFocus={props.onFocus}
+                onBlur={props.onBlur}
+                onClick={props.remove(team)}
+              >
+                x
+              </button>
+            </td>
+          </tr>
+        ))}
+        <tr>
+          <td>
+            <select
+              value={props.selectValue}
+              onFocus={props.onFocus}
+              onBlur={props.onBlur}
+              onChange={props.selectChange}
+            >
+              <option />
+              {props.unselectedTeams.map(team => (
+                <option key={team.get('name')} value={team.get('name')}>
+                  {team.get('name')}
+                </option>
               ))}
-            <tr>
-              <td>
-                <select
-                  value={selectValue}
-                  onFocus={props.onFocus}
-                  onBlur={props.onBlur}
-                  onChange={onSelectChange(props.setCustom)}
-                >
-                  <option />
-                  {selectableTeams.map(team => (
-                    <option key={team} value={team}>
-                      {team}
-                    </option>
-                  ))}
-                </select>
-              </td>
-              <td>
-                <button
-                  type="button"
-                  onFocus={props.onFocus}
-                  onBlur={props.onBlur}
-                  disabled={!selectValue}
-                  onClick={add(
-                    props.name,
-                    props.value,
-                    props.onChange,
-                    selectValue,
-                    props.setCustom,
-                  )}
-                >
-                  +
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    );
-  } else {
-    return null;
-  }
-};
+            </select>
+          </td>
+          <td>
+            <button
+              type="button"
+              onFocus={props.onFocus}
+              onBlur={props.onBlur}
+              disabled={!props.selectValue}
+              onClick={props.add}
+            >
+              +
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+);
+
+export const MembershipsField = ({
+  component: MembershipsFieldImpl = MembershipsFieldDefault,
+  ...props
+}) => (
+  <MembershipsFieldImpl
+    {...props}
+    selectedTeams={props.teams
+      .filter(team =>
+        props.value.find(
+          membership => membership.getIn(['team', 'name']) === team.get('name'),
+        ),
+      )
+      .sortBy(team => team.get('name'))}
+    unselectedTeams={props.teams
+      .filter(
+        team =>
+          !props.value.find(
+            membership =>
+              membership.getIn(['team', 'name']) === team.get('name'),
+          ),
+      )
+      .sortBy(team => team.get('name'))}
+    selectValue={get(props.custom, 'select', '')}
+    selectChange={onSelectChange(props.setCustom)}
+    add={add(
+      props.name,
+      props.value,
+      props.onChange,
+      get(props.custom, 'select', ''),
+      props.setCustom,
+    )}
+    remove={remove(props.name, props.value, props.onChange)}
+  />
+);

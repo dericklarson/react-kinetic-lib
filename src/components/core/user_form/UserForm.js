@@ -79,8 +79,8 @@ const fields = ({ attributeFields }) => ({
     label: 'Preferred Locale',
     type: 'select',
     options: locales.map(locale => ({
-      value: locale.code,
-      label: locale.name,
+      value: locale.get('code'),
+      label: locale.get('name'),
     })),
     required: false,
   },
@@ -89,8 +89,8 @@ const fields = ({ attributeFields }) => ({
     label: 'Timezone',
     type: 'select',
     options: timezones.map(timezone => ({
-      value: timezone.id,
-      label: timezone.name,
+      value: timezone.get('id'),
+      label: timezone.get('name'),
     })),
     required: false,
   },
@@ -98,8 +98,9 @@ const fields = ({ attributeFields }) => ({
     ? Object.entries(attributeFields).map(([name, config]) => ({
         name: `attributesMap.${name}`,
         label: config.label || name,
-        type: attributeDefinitions.find(({ name: defName }) => defName === name)
-          .allowsMultiple
+        type: attributeDefinitions
+          .find(attrDef => attrDef.get('name') === name)
+          .get('allowsMultiple')
           ? 'text-multi'
           : 'text',
         required: false,
@@ -124,23 +125,19 @@ const fields = ({ attributeFields }) => ({
 ];
 
 const initialValues = ({ attributeDefinitions, space, user }) => ({
-  spaceAdmin: user ? user.spaceAdmin : false,
-  enabled: user ? user.enabled : true,
-  displayName: user ? user.displayName : '',
-  email: user ? user.email : '',
-  preferredLocale: user ? user.preferredLocale : '',
-  timezone: user ? user.timezone : '',
+  spaceAdmin: user ? user.get('spaceAdmin') : false,
+  enabled: user ? user.get('enabled') : true,
+  displayName: user ? user.get('displayName') : '',
+  email: user ? user.get('email') : '',
+  preferredLocale: user ? user.get('preferredLocale') : '',
+  timezone: user ? user.get('timezone') : '',
   attributesMap: user
-    ? user.attributesMap
+    ? user.get('attributesMap')
     : attributeDefinitions.reduce(
         (value, { name }) => ({ ...value, [name]: [] }),
         {},
       ),
-  memberships: user
-    ? user.memberships.map(membership => ({
-        team: { name: membership.team.name },
-      }))
-    : [],
+  memberships: user ? user.get('memberships') : [],
 });
 
 const setup = ({ formKey, username, attributeFields }) => {

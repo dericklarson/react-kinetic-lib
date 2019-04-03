@@ -1,6 +1,6 @@
 import React from 'react';
 import { all, call, put, select, takeEvery } from 'redux-saga/effects';
-import { fromJS, hasIn, is, List, Map, OrderedMap } from 'immutable';
+import { fromJS, getIn, hasIn, is, List, Map, OrderedMap } from 'immutable';
 import { connect, dispatch, regHandlers, regSaga } from '../../store';
 import { AttributesField } from './AttributesField';
 import { MembershipsField } from './MembershipsField';
@@ -13,8 +13,6 @@ export const isEmpty = value =>
   value === null ||
   value === undefined ||
   (value.hasOwnProperty('length') && value.length === 0);
-
-export const equals = (a, b) => is(fromJS(a), fromJS(b));
 
 const convertDataSource = ([fn, args = [], options = {}]) =>
   fromJS({
@@ -54,13 +52,20 @@ regHandlers({
           .map(initializeFieldState)
           .map(field => [field.get('name'), field]),
       ).map((field, name) => {
-        const initialValue = name.startsWith('attributesMap.')
-          ? field.get('type').endsWith('-multi')
-            ? initialValues['attributesMap'][name.replace('attributesMap.', '')]
-            : initialValues['attributesMap'][
-                name.replace('attributesMap.', '')
-              ][0]
-          : initialValues[name];
+        const initialValue = fromJS(
+          name.startsWith('attributesMap.')
+            ? field.get('type').endsWith('-multi')
+              ? getIn(initialValues, [
+                  'attributesMap',
+                  name.replace('attributesMap.', ''),
+                ])
+              : getIn(initialValues, [
+                  'attributesMap',
+                  name.replace('attributesMap.', ''),
+                  0,
+                ])
+            : getIn(initialValues, [name]),
+        );
         return field.merge({
           initialValue,
           value: initialValue,
@@ -72,7 +77,7 @@ regHandlers({
       field.merge({
         value,
         touched: true,
-        dirty: !equals(value, field.get('initialValue')),
+        dirty: !is(value, field.get('initialValue')),
       }),
     ),
   SET_FIELD_CUSTOM: (state, { payload: { formKey, name, path, value } }) =>
@@ -100,8 +105,9 @@ regHandlers({
     state.setIn(['forms', formKey, 'dataSources', name, 'args'], args),
   RESOLVE_DATA_SOURCE: (
     state,
-    { payload: { formKey, shared, name, data, timestamp, args } },
+    { payload: { formKey, shared, name, data: nativeData, timestamp, args } },
   ) => {
+    const data = fromJS(nativeData);
     const updateShared = shared
       ? state.setIn(['dataSources', name], Map({ data, timestamp, args }))
       : state;
@@ -124,7 +130,7 @@ regSaga(
     const values = {};
     yield all(
       dataSources
-        .filter(ds => isEmpty(ds.getIn(['options', 'dependencies'])))
+        .filter(ds => ds.getIn(['options', 'dependencies'], List()).isEmpty())
         .keySeq()
         .map(name =>
           put({
@@ -151,8 +157,8 @@ regSaga(
       .map(ds => ds.get('data'))
       .toJS();
 
-    const args = argsFn({ ...dependencies, values });
-    if (!equals(args, prevArgs)) {
+    const args = fromJS(argsFn({ ...dependencies, values }));
+    if (!args.equals(prevArgs)) {
       const data = yield select(state =>
         state.getIn(['dataSources', name, 'data']),
       );
@@ -182,7 +188,7 @@ regSaga(
     );
     const shared = options.get('shared');
     const transform = options.get('transform', identity);
-    const data = transform(yield call(fn, ...args));
+    const data = transform(yield call(fn, ...args.toJS()));
     const timestamp = yield call(getTimestamp);
     yield put({
       type: 'RESOLVE_DATA_SOURCE',
@@ -210,7 +216,7 @@ regSaga(
         .toArray(),
     );
     if (dataSources.every(ds => ds.has('data'))) {
-      const dependencies = dataSources.map(ds => ds.get('data')).toJS();
+      const dependencies = dataSources.map(ds => ds.get('data')).toObject();
       const fieldsFn = yield select(state =>
         state.getIn(['forms', formKey, 'fieldsFn']),
       );

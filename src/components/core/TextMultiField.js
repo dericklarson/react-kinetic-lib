@@ -10,7 +10,7 @@ const add = (name, values, onChange, value, setCustom) => () => {
     target: {
       name,
       type: 'text-multi',
-      value: [...values, value],
+      value: values.push(value),
     },
   });
   setCustom(['input'], '');
