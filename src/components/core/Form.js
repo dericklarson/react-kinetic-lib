@@ -1,6 +1,6 @@
 import React from 'react';
 import { all, call, put, select, takeEvery } from 'redux-saga/effects';
-import { fromJS, is, List, Map, OrderedMap } from 'immutable';
+import { fromJS, hasIn, is, List, Map, OrderedMap } from 'immutable';
 import { connect, dispatch, regHandlers, regSaga } from '../../store';
 import { AttributesField } from './AttributesField';
 import { MembershipsField } from './MembershipsField';
@@ -17,7 +17,7 @@ export const isEmpty = value =>
 export const equals = (a, b) => is(fromJS(a), fromJS(b));
 
 const convertDataSource = ([fn, args = [], options = {}]) =>
-  Map({
+  fromJS({
     fn,
     argsFn: typeof args === 'function' ? args : () => args,
     options,
@@ -39,11 +39,11 @@ regHandlers({
   ) =>
     state.setIn(
       ['forms', formKey],
-      fromJS({
+      Map({
         dataSources: Map(dataSources).map(convertDataSource),
         fieldsFn: fields,
         initialValuesFn: initialValues,
-        state: {},
+        state: Map(),
       }),
     ),
   SETUP_FIELDS: (state, { payload: { formKey, fields, initialValues } }) =>
@@ -147,10 +147,7 @@ regSaga(
       state.getIn(['forms', formKey, 'dataSources']),
     );
     const dependencies = dataSources
-      .filter(
-        (ds, name) =>
-          options.dependencies && options.dependencies.includes(name),
-      )
+      .filter((ds, name) => hasIn(options, ['dependencies', name]))
       .map(ds => ds.get('data'))
       .toJS();
 
@@ -162,7 +159,7 @@ regSaga(
       const timestamp = yield select(state =>
         state.getIn(['dataSources', name, 'timestamp']),
       );
-      if (options.shared && data) {
+      if (options.get('shared') && data) {
         yield put({
           type: 'RESOLVE_DATA_SOURCE',
           payload: { formKey, name, data, args },
@@ -183,7 +180,8 @@ regSaga(
     const { fn, options } = yield select(state =>
       state.getIn(['forms', formKey, 'dataSources', name]).toObject(),
     );
-    const { shared, transform = identity } = options;
+    const shared = options.get('shared');
+    const transform = options.get('transform', identity);
     const data = transform(yield call(fn, ...args));
     const timestamp = yield call(getTimestamp);
     yield put({
