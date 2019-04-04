@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Component } from 'react';
 import { Form, setupForm, teardownForm } from '../Form';
 import { fetchSpace, fetchTeams, fetchUser } from '../../../apis/core';
 import { fetchLocales, fetchTimezones } from '../../../apis/core/meta';
@@ -153,15 +153,30 @@ const teardown = ({ formKey }) => {
   teardownForm({ formKey });
 };
 
-const mapStateToProps = (state, props) => ({});
+export class UserForm extends Component {
+  componentDidMount() {
+    const { auto, components, onSubmit, ...setupProps } = this.props;
+    if (auto) {
+      setup(setupProps);
+    }
+  }
 
-export const UserForm = props => (
-  <Form
-    formKey={props.formKey}
-    onSubmit={props.onSubmit}
-    components={props.components || {}}
-  />
-);
+  componentWillUnmount() {
+    if (this.props.auto) {
+      teardown({ formKey: this.props.formKey });
+    }
+  }
+
+  render() {
+    return (
+      <Form
+        formKey={this.props.formKey}
+        onSubmit={this.props.onSubmit}
+        components={this.props.components || {}}
+      />
+    );
+  }
+}
 
 UserForm.setup = setup;
 UserForm.teardown = teardown;
