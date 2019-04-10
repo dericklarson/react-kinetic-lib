@@ -5,12 +5,12 @@ const onSelectChange = setCustom => event => {
   setCustom(['select'], event.target.value);
 };
 
-const add = (name, value, onChange, teamName, setCustom) => () => {
+const add = (name, value, onChange, setCustom) => team => () => {
   onChange({
     target: {
       name,
       type: 'memberships',
-      value: value.push(fromJS({ team: { name: teamName } })),
+      value: value.push(fromJS({ team: { name: team } })),
     },
   });
   setCustom(['select'], '');
@@ -22,7 +22,7 @@ const remove = (name, value, onChange) => team => () => {
       name,
       type: 'memberships',
       value: value.filter(
-        membership => membership.getIn(['team', 'name']) !== team.get('name'),
+        membership => membership.getIn(['team', 'name']) !== team,
       ),
     },
   });
@@ -41,7 +41,7 @@ const MembershipsFieldDefault = props => (
                 type="button"
                 onFocus={props.onFocus}
                 onBlur={props.onBlur}
-                onClick={props.remove(team)}
+                onClick={props.remove(team.get('name'))}
               >
                 x
               </button>
@@ -70,7 +70,7 @@ const MembershipsFieldDefault = props => (
               onFocus={props.onFocus}
               onBlur={props.onBlur}
               disabled={!props.selectValue}
-              onClick={props.add}
+              onClick={props.add(props.selectValue)}
             >
               +
             </button>
@@ -105,13 +105,7 @@ export const MembershipsField = ({
       .sortBy(team => team.get('name'))}
     selectValue={get(props.custom, 'select', '')}
     selectChange={onSelectChange(props.setCustom)}
-    add={add(
-      props.name,
-      props.value,
-      props.onChange,
-      get(props.custom, 'select', ''),
-      props.setCustom,
-    )}
+    add={add(props.name, props.value, props.onChange, props.setCustom)}
     remove={remove(props.name, props.value, props.onChange)}
   />
 );

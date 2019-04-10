@@ -36,7 +36,7 @@ export const TextMultiFieldDefault = props => (
           type="button"
           onFocus={props.onFocus}
           onBlur={props.onBlur}
-          onClick={() => props.remove(i)}
+          onClick={props.remove(i)}
         >
           x
         </button>
