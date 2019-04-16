@@ -33,6 +33,7 @@ const store = createStore(
 
 const dispatch = (type, payload) => store.dispatch({ type, payload });
 const dispatcher = type => payload => store.dispatch({ type, payload });
+const action = (type, payload) => ({ type, payload });
 
 const commitStore = () => {
   commitSagas();
@@ -44,6 +45,7 @@ const connect = (...args) =>
   originalConnect(...setIn(args, [3, 'context'], context));
 
 export {
+  action,
   context,
   commitStore,
   connect,

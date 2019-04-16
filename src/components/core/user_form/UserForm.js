@@ -3,6 +3,7 @@ import { Form, setupForm, teardownForm } from '../Form';
 import { fetchSpace, fetchTeams, fetchUser } from '../../../apis/core';
 import { fetchLocales, fetchTimezones } from '../../../apis/core/meta';
 import { fetchAttributeDefinitions } from '../../../apis/core/attributeDefinitions';
+import { get, getIn } from 'immutable';
 
 const secondThing = user => {
   console.log('>>> second thing >>>', user);
@@ -44,67 +45,94 @@ const dataSources = ({ user, username }) => ({
   secondThing: [secondThing, ({ user }) => [user], { dependencies: ['user'] }],
 });
 
-const fields = ({ attributeFields }) => ({
-  attributeDefinitions,
-  locales,
-  teams,
-  timezones,
-}) => [
+const fields = ({ attributeFields }) => [
   {
     name: 'spaceAdmin',
     label: 'Space Admin',
     type: 'checkbox',
     required: true,
+    initialValue: ({ user }) => get(user, 'spaceAdmin', ''),
   },
   {
     name: 'enabled',
     label: 'Enabled',
     type: 'checkbox',
     required: true,
+    initialValue: ({ user }) => get(user, 'enabled', ''),
   },
   {
     name: 'displayName',
     label: 'Display Name',
     type: 'text',
     required: true,
+    initialValue: ({ user }) => get(user, 'displayName', ''),
   },
   {
     name: 'email',
     label: 'Email',
     type: 'text',
     required: true,
+    initialValue: ({ user }) => get(user, 'email', ''),
+  },
+  {
+    name: 'password',
+    label: 'Password',
+    type: 'password',
+    required: ({ values }) => values.get('changePassword'),
+    visible: ({ values }) => values.get('changePassword'),
+    initialValue: '',
+  },
+  {
+    name: 'passwordConfirmation',
+    label: 'Password Confirmation',
+    type: 'password',
+    required: ({ values }) => values.get('changePassword'),
+    visible: ({ values }) => values.get('changePassword'),
+    constraint: ({ values }) =>
+      values.get('passwordConfirmation') === values.get('password'),
+    constraintMessage: 'Password Confirmation does not match',
+    initialValue: '',
+  },
+  {
+    name: 'changePassword',
+    label: 'Change Password',
+    type: 'checkbox',
+    required: true,
+    initialValue: false,
+    transient: true,
   },
   {
     name: 'preferredLocale',
     label: 'Preferred Locale',
     type: 'select',
-    options: locales.map(locale => ({
-      value: locale.get('code'),
-      label: locale.get('name'),
-    })),
+    options: ({ locales }) =>
+      locales.map(locale => ({
+        value: locale.get('code'),
+        label: locale.get('name'),
+      })),
     required: false,
+    initialValue: ({ user }) => get(user, 'preferredLocale', ''),
   },
   {
     name: 'timezone',
     label: 'Timezone',
     type: 'select',
-    options: timezones.map(timezone => ({
-      value: timezone.get('id'),
-      label: timezone.get('name'),
-    })),
+    options: ({ timezones }) =>
+      timezones.map(timezone => ({
+        value: timezone.get('id'),
+        label: timezone.get('name'),
+      })),
     required: false,
+    initialValue: ({ user }) => get(user, 'timezone', ''),
   },
   ...(attributeFields
     ? Object.entries(attributeFields).map(([name, config]) => ({
         name: `attributesMap.${name}`,
-        label: config.label || name,
-        type: attributeDefinitions
-          .find(attrDef => attrDef.get('name') === name)
-          .get('allowsMultiple')
-          ? 'text-multi'
-          : 'text',
-        required: false,
-        component: config.component,
+        label: get(config, 'label', name),
+        type: get(config, 'type', 'text'),
+        required: get(config, 'required', false),
+        initialValue: ({ user }) =>
+          getIn(user, ['attributesMap', 'name'], config.initialValue || ''),
       }))
     : [
         {
@@ -112,7 +140,16 @@ const fields = ({ attributeFields }) => ({
           label: 'Attributes',
           type: 'attributes',
           required: false,
-          attributeDefinitions,
+          options: ({ attributeDefinitions }) => attributeDefinitions,
+          initialValue: ({ attributeDefinitions, user }) =>
+            get(
+              user,
+              'attributesMap',
+              attributeDefinitions.reduce(
+                (value, { name }) => ({ ...value, [name]: [] }),
+                {},
+              ),
+            ),
         },
       ]),
   {
@@ -120,32 +157,16 @@ const fields = ({ attributeFields }) => ({
     label: 'Teams',
     type: 'memberships',
     required: false,
-    teams,
+    options: ({ teams }) => teams,
+    initialValue: ({ user }) => get(user, 'memberships', []),
   },
 ];
-
-const initialValues = ({ attributeDefinitions, space, user }) => ({
-  spaceAdmin: user ? user.get('spaceAdmin') : false,
-  enabled: user ? user.get('enabled') : true,
-  displayName: user ? user.get('displayName') : '',
-  email: user ? user.get('email') : '',
-  preferredLocale: user ? user.get('preferredLocale') : '',
-  timezone: user ? user.get('timezone') : '',
-  attributesMap: user
-    ? user.get('attributesMap')
-    : attributeDefinitions.reduce(
-        (value, { name }) => ({ ...value, [name]: [] }),
-        {},
-      ),
-  memberships: user ? user.get('memberships') : [],
-});
 
 const setup = ({ formKey, username, attributeFields }) => {
   setupForm({
     formKey,
     dataSources: dataSources({ username }),
     fields: fields({ attributeFields }),
-    initialValues,
   });
 };
 

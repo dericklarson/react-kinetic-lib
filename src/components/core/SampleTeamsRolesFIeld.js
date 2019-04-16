@@ -1,7 +1,7 @@
 import React from 'react';
 
-export const TeamsRolesField = ({ teams, value, add, remove }) =>
-  teams
+export const TeamsRolesField = ({ options, value, add, remove }) =>
+  options
     .map(team =>
       team.merge(
         value.some(m => m.getIn(['team', 'name']) === team.get('name'))
@@ -14,10 +14,10 @@ export const TeamsRolesField = ({ teams, value, add, remove }) =>
     )
     .sortBy((value, key) => key)
     .map((teams, type) => (
-      <div>
+      <div key={type}>
         {type}
         {teams.map(team => (
-          <div>
+          <div key={team.get('name')}>
             <label>
               <input
                 type="checkbox"

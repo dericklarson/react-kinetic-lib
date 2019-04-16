@@ -139,7 +139,7 @@ export const AttributesField = ({
     newInputValue={props.custom.get('input', '')}
     selectChange={onSelectChange(props.setCustom)}
     selectValue={props.custom.get('select', '')}
-    selectableAttributes={props.attributeDefinitions
+    selectableAttributes={props.options
       .filter(
         attrDef =>
           attrDef.get('allowsMultiple') ||

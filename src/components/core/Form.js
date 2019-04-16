@@ -1,7 +1,7 @@
 import React from 'react';
 import { all, call, put, select, takeEvery } from 'redux-saga/effects';
-import { fromJS, getIn, hasIn, is, List, Map, OrderedMap } from 'immutable';
-import { connect, dispatch, regHandlers, regSaga } from '../../store';
+import { fromJS, is, List, Map, OrderedMap } from 'immutable';
+import { action, connect, dispatch, regHandlers, regSaga } from '../../store';
 import { AttributesField } from './AttributesField';
 import { MembershipsField } from './MembershipsField';
 import { TextMultiField } from './TextMultiField';
@@ -21,57 +21,96 @@ const convertDataSource = ([fn, args = [], options = {}]) =>
     options,
   });
 
-const initializeFieldState = field =>
-  Map(field).merge({
-    dirty: false,
-    focused: false,
-    touched: false,
-    errors: List([]),
-    custom: Map({}),
-  });
+const defaultFieldProps = fromJS({
+  enabled: true,
+  options: [],
+  required: false,
+  visible: true,
+  dirty: false,
+  focused: false,
+  touched: false,
+  errors: [],
+  custom: {},
+});
+
+const dynamicFieldProps = List([
+  'enabled',
+  'initialValue',
+  'options',
+  'required',
+  'visible',
+]);
+
+const selectDataSourcesData = formKey => state =>
+  state
+    .getIn(['forms', formKey, 'dataSources'])
+    .map(dataSource => dataSource.get('data'))
+    .toObject();
+
+const selectValues = formKey => state =>
+  state.getIn(['forms', formKey, 'fields']).map(field => field.get('value'));
+
+const selectBindings = formKey => state => ({
+  ...selectDataSourcesData(formKey)(state),
+  values: selectValues(formKey)(state),
+});
+
+const evaluateFieldProps = (props, bindings) => field =>
+  props.reduce(
+    (updatedField, prop) =>
+      updatedField.hasIn(['functions', prop])
+        ? updatedField.set(
+            prop,
+            updatedField.getIn(['functions', prop])(bindings),
+          )
+        : updatedField,
+    field,
+  );
+
+const convertField = field =>
+  dynamicFieldProps.reduce(
+    (acc, prop) =>
+      typeof field[prop] === 'function'
+        ? acc.setIn(['functions', prop], field[prop]).set(prop, null)
+        : acc,
+    Map(defaultFieldProps).merge(field),
+  );
 
 regHandlers({
-  SETUP_FORM: (
-    state,
-    { payload: { formKey, dataSources, fields, initialValues } },
-  ) =>
+  SETUP_FORM: (state, { payload: { formKey, dataSources, fields } }) =>
     state.setIn(
       ['forms', formKey],
       Map({
         dataSources: Map(dataSources).map(convertDataSource),
-        fieldsFn: fields,
-        initialValuesFn: initialValues,
+        fields: OrderedMap(
+          fields.map(convertField).map(field => [field.get('name'), field]),
+        ),
         state: Map(),
       }),
     ),
-  SETUP_FIELDS: (state, { payload: { formKey, fields, initialValues } }) =>
-    state.setIn(
-      ['forms', formKey, 'fields'],
-      OrderedMap(
-        List(fields)
-          .map(initializeFieldState)
-          .map(field => [field.get('name'), field]),
-      ).map((field, name) => {
-        const initialValue = fromJS(
-          name.startsWith('attributesMap.')
-            ? field.get('type').endsWith('-multi')
-              ? getIn(initialValues, [
-                  'attributesMap',
-                  name.replace('attributesMap.', ''),
-                ])
-              : getIn(initialValues, [
-                  'attributesMap',
-                  name.replace('attributesMap.', ''),
-                  0,
-                ])
-            : getIn(initialValues, [name]),
-        );
-        return field.merge({
-          initialValue,
-          value: initialValue,
-        });
-      }),
-    ),
+  EVAL_INITIAL_VALUES: (state, { payload: { formKey } }) => {
+    const bindings = selectDataSourcesData(formKey)(state);
+    return state
+      .updateIn(['forms', formKey, 'fields'], fields =>
+        fields
+          .map(evaluateFieldProps(['initialValue'], bindings))
+          .map(field => field.set('value', field.get('initialValue'))),
+      )
+      .setIn(['forms', formKey, 'valuesInitialized'], true);
+  },
+  EVAL_FIELDS: (state, { payload: { formKey } }) => {
+    const bindings = selectBindings(formKey)(state);
+    return state
+      .updateIn(['forms', formKey, 'fields'], fields =>
+        fields.map(
+          evaluateFieldProps(
+            ['enabled', 'options', 'required', 'visible'],
+            bindings,
+          ),
+        ),
+      )
+      .setIn(['forms', formKey, 'fieldsInitialized'], true);
+  },
   SET_VALUE: (state, { payload: { formKey, name, value } }) =>
     state.updateIn(['forms', formKey, 'fields', name], field =>
       field.merge({
@@ -145,15 +184,22 @@ regSaga(
 
 regSaga(
   takeEvery('CHECK_DATA_SOURCE', function*({ payload }) {
-    const { formKey, name, values } = payload;
+    const { formKey, name } = payload;
     const { args: prevArgs, argsFn, options } = yield select(state =>
       state.getIn(['forms', formKey, 'dataSources', name]).toObject(),
     );
     const dataSources = yield select(state =>
       state.getIn(['forms', formKey, 'dataSources']),
     );
+    const values = yield select(state =>
+      state.getIn(['forms', formKey, 'valuesInitialized'])
+        ? state
+            .getIn(['forms', formKey, 'fields'])
+            .map(field => field.get('value'))
+        : null,
+    );
     const dependencies = dataSources
-      .filter((ds, name) => hasIn(options, ['dependencies', name]))
+      .filter((ds, name) => options.get('dependencies', List()).contains(name))
       .map(ds => ds.get('data'))
       .toJS();
 
@@ -197,39 +243,67 @@ regSaga(
   }),
 );
 
+const isResolved = dataSource => dataSource.has('data');
+const dependsOn = name => dataSource =>
+  dataSource.getIn(['options', 'dependencies'], []).includes(name);
+
 regSaga(
   takeEvery('RESOLVE_DATA_SOURCE', function*({ payload }) {
     const { formKey, name } = payload;
+    const [dataSources, valuesInitialized] = yield select(state => [
+      state.getIn(['forms', formKey, 'dataSources']),
+      state.getIn(['forms', formKey, 'valuesInitialized']),
+    ]);
+    yield all(
+      dataSources
+        .filter(dependsOn(name))
+        .keySeq()
+        .map(name => put(action('CHECK_DATA_SOURCE', { formKey, name })))
+        .toArray(),
+    );
+    if (
+      dataSources.filterNot(dependsOn('values')).every(isResolved) &&
+      !valuesInitialized
+    ) {
+      yield put(action('EVAL_INITIAL_VALUES', { formKey }));
+    }
+    if (dataSources.every(isResolved) && valuesInitialized) {
+      yield put(action('EVAL_FIELDS', { formKey }));
+    }
+  }),
+);
+
+regSaga(
+  takeEvery('EVAL_INITIAL_VALUES', function*({ payload: { formKey } }) {
     const dataSources = yield select(state =>
       state.getIn(['forms', formKey, 'dataSources']),
     );
+    const actions = dataSources
+      .filter(dependsOn('values'))
+      .keySeq()
+      .map(name => put(action('CHECK_DATA_SOURCE', { formKey, name })));
+
+    if (actions.isEmpty()) {
+      yield put(action('EVAL_FIELDS', { formKey }));
+    } else {
+      yield all(actions.toArray());
+    }
+  }),
+);
+
+regSaga(
+  takeEvery('SET_VALUE', function*({ payload: { formKey } }) {
+    const dataSources = yield select(state =>
+      state.getIn(['forms', formKey, 'dataSources']),
+    );
+    yield put(action('EVAL_FIELDS', { formKey }));
     yield all(
       dataSources
-        .filter(ds => ds.getIn(['options', 'dependencies'], []).includes(name))
+        .filter(dependsOn('values'))
         .keySeq()
-        .map(name =>
-          put({
-            type: 'CHECK_DATA_SOURCE',
-            payload: { formKey, name, values: {} },
-          }),
-        )
+        .map(name => put(action('CHECK_DATA_SOURCE', { formKey, name })))
         .toArray(),
     );
-    if (dataSources.every(ds => ds.has('data'))) {
-      const dependencies = dataSources.map(ds => ds.get('data')).toObject();
-      const fieldsFn = yield select(state =>
-        state.getIn(['forms', formKey, 'fieldsFn']),
-      );
-      const initialValuesFn = yield select(state =>
-        state.getIn(['forms', formKey, 'initialValuesFn']),
-      );
-      const fields = fieldsFn({ ...dependencies });
-      const initialValues = initialValuesFn({ ...dependencies });
-      yield put({
-        type: 'SETUP_FIELDS',
-        payload: { formKey, fields, initialValues },
-      });
-    }
   }),
 );
 
@@ -363,7 +437,7 @@ export const Field = props => {
 
 export const Form = connect(mapStateToProps)(props => (
   <form onSubmit={onSubmit(props.onSubmit, props.values)}>
-    {props.fields &&
+    {props.fieldsInitialized &&
       props.fields.toList().map(field => (
         <Field
           key={field.get('name')}
@@ -371,8 +445,6 @@ export const Form = connect(mapStateToProps)(props => (
           id={field.get('id')}
           label={field.get('label')}
           options={field.get('options')}
-          attributeDefinitions={field.get('attributeDefinitions')}
-          teams={field.get('teams')}
           type={field.get('type')}
           value={field.get('value')}
           onFocus={onFocus({

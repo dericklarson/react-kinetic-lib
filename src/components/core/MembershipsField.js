@@ -30,7 +30,7 @@ const remove = (name, value, onChange) => team => () => {
 
 const MembershipsFieldDefault = props => (
   <div className="field">
-    {props.teams ? 'Teams' : 'Users'}
+    Teams
     <table>
       <tbody>
         {props.selectedTeams.map(team => (
@@ -87,14 +87,14 @@ export const MembershipsField = ({
 }) => (
   <MembershipsFieldImpl
     {...props}
-    selectedTeams={props.teams
+    selectedTeams={props.options
       .filter(team =>
         props.value.find(
           membership => membership.getIn(['team', 'name']) === team.get('name'),
         ),
       )
       .sortBy(team => team.get('name'))}
-    unselectedTeams={props.teams
+    unselectedTeams={props.options
       .filter(
         team =>
           !props.value.find(
