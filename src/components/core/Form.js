@@ -1,6 +1,6 @@
 import React from 'react';
 import { all, call, put, select, takeEvery } from 'redux-saga/effects';
-import { fromJS, is, List, Map, OrderedMap } from 'immutable';
+import { fromJS, is, List, Map, OrderedMap, Set } from 'immutable';
 import { action, connect, dispatch, regHandlers, regSaga } from '../../store';
 import { AttributesField } from './AttributesField';
 import { MembershipsField } from './MembershipsField';
@@ -20,6 +20,44 @@ const convertDataSource = ([fn, args = [], options = {}]) =>
     argsFn: typeof args === 'function' ? args : () => args,
     options,
   });
+
+export const initializeDataSources = dataSources =>
+  resolveAncestorDependencies(Map(dataSources).map(convertDataSource));
+
+const resolveAncestorDependencies = (
+  dataSources,
+  ancestorsMap = Map({ values: Set() }),
+) => {
+  const nextAncestorsMap = dataSources
+    .map(dataSource => dataSource.getIn(['options', 'dependencies'], List()))
+    .filter(deps => deps.every(dep => ancestorsMap.has(dep)))
+    .reduce(
+      (reduction, deps, name) =>
+        reduction.set(
+          name,
+          deps.toSet().concat(deps.flatMap(dep => ancestorsMap.get(dep))),
+        ),
+      ancestorsMap,
+    );
+
+  if (dataSources.keySeq().every(name => ancestorsMap.has(name))) {
+    return dataSources.map((dataSource, name) =>
+      dataSource.setIn(
+        ['options', 'ancestorDependencies'],
+        ancestorsMap
+          .get(name)
+          .toList()
+          .sort(),
+      ),
+    );
+  } else {
+    if (!nextAncestorsMap.equals(ancestorsMap)) {
+      return resolveAncestorDependencies(dataSources, nextAncestorsMap);
+    } else {
+      throw 'Could not resolve dependency graph due to missing or cyclic dependencies';
+    }
+  }
+};
 
 const defaultFieldProps = fromJS({
   enabled: true,
@@ -81,7 +119,7 @@ regHandlers({
     state.setIn(
       ['forms', formKey],
       Map({
-        dataSources: Map(dataSources).map(convertDataSource),
+        dataSources: initializeDataSources(dataSources),
         fields: OrderedMap(
           fields.map(convertField).map(field => [field.get('name'), field]),
         ),
@@ -244,8 +282,13 @@ regSaga(
 );
 
 const isResolved = dataSource => dataSource.has('data');
-const dependsOn = name => dataSource =>
-  dataSource.getIn(['options', 'dependencies'], []).includes(name);
+const dependsOn = (name, includeAncestors) => dataSource =>
+  dataSource
+    .getIn(
+      ['options', includeAncestors ? 'ancestorDependencies' : 'dependencies'],
+      List(),
+    )
+    .includes(name);
 
 regSaga(
   takeEvery('RESOLVE_DATA_SOURCE', function*({ payload }) {
@@ -262,7 +305,7 @@ regSaga(
         .toArray(),
     );
     if (
-      dataSources.filterNot(dependsOn('values')).every(isResolved) &&
+      dataSources.filterNot(dependsOn('values', true)).every(isResolved) &&
       !valuesInitialized
     ) {
       yield put(action('EVAL_INITIAL_VALUES', { formKey }));
