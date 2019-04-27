@@ -548,7 +548,7 @@ export const onChange = ({ formKey, type, name }) => event => {
 };
 
 export const onSubmit = formKey => event => {
-  event.preventDefault();
+  event && event.preventDefault && event.preventDefault();
   dispatch('SUBMIT', { formKey });
 };
 
@@ -622,17 +622,13 @@ const FormImpl = props =>
             component={get(props.components, field.get('name'))}
           />
         ))}
-        {props.error && (
-          <div>
-            {props.error}&nbsp;
-            <button onClick={clearError(props.formKey)}>x</button>
-          </div>
-        )}
-        <button type="submit" disabled={props.submitting}>
-          Submit
-        </button>
       </form>
     ),
+    error: props.error,
+    clearError: clearError(props.formKey),
+    submit: onSubmit(props.formKey),
+    submitting: props.submitting,
+    dirty: props.fields.some(field => field.get('dirty')),
   });
 
 export const Form = connect(mapStateToProps)(FormImpl);

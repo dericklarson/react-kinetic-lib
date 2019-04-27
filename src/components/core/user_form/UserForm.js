@@ -101,7 +101,7 @@ const fields = ({ attributeFields, profileAttributeFields, username }) => [
     name: 'enabled',
     label: 'Enabled?',
     type: 'checkbox',
-    initialValue: ({ user }) => get(user, 'enabled'),
+    initialValue: ({ user }) => get(user, 'enabled', true),
   },
   {
     name: 'preferredLocale',
