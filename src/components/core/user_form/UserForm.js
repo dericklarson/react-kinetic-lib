@@ -3,19 +3,10 @@ import { Form, setupForm, teardownForm } from '../Form';
 import { fetchSpace, fetchTeams, fetchUser } from '../../../apis/core';
 import { fetchLocales, fetchTimezones } from '../../../apis/core/meta';
 import { fetchAttributeDefinitions } from '../../../apis/core/attributeDefinitions';
+import { createUser, updateUser } from '../../../apis/core/users';
 import { get, getIn } from 'immutable';
 
-const secondThing = user => {
-  console.log('>>> second thing >>>', user);
-  return new Promise(resolve => {
-    setTimeout(() => {
-      console.log('<<< second thing <<<', user);
-      resolve(2);
-    });
-  });
-};
-
-const dataSources = ({ user, username }) => ({
+const dataSources = ({ username }) => ({
   space: [
     fetchSpace,
     [{ include: 'attributesMap' }],
@@ -34,7 +25,7 @@ const dataSources = ({ user, username }) => ({
   user: [
     fetchUser,
     [{ username, include: 'attributesMap,memberships' }],
-    { transform: result => result.user },
+    { transform: result => result.user, runIf: () => !!username },
   ],
   attributeDefinitions: [
     fetchAttributeDefinitions,
@@ -42,30 +33,38 @@ const dataSources = ({ user, username }) => ({
     { transform: result => result.attributeDefinitions },
   ],
   teams: [fetchTeams, [], { transform: result => result.teams }],
-  secondThing: [secondThing, ({ user }) => [user], { dependencies: ['user'] }],
 });
 
-const fields = ({ attributeFields }) => [
+const handleSubmit = ({ username }) => values => {
+  const user = values.toJS();
+  return username ? updateUser({ username, user }) : createUser({ user });
+};
+
+const fields = ({ attributeFields, username }) => [
+  !username && {
+    name: 'username',
+    label: 'Username',
+    type: 'text',
+    required: true,
+  },
   {
     name: 'spaceAdmin',
     label: 'Space Admin',
     type: 'checkbox',
-    required: true,
-    initialValue: ({ user }) => get(user, 'spaceAdmin', ''),
+    initialValue: ({ user }) => get(user, 'spaceAdmin'),
   },
   {
     name: 'enabled',
     label: 'Enabled',
     type: 'checkbox',
-    required: true,
-    initialValue: ({ user }) => get(user, 'enabled', ''),
+    initialValue: ({ user }) => get(user, 'enabled'),
   },
   {
     name: 'displayName',
     label: 'Display Name',
     type: 'text',
     required: true,
-    initialValue: ({ user }) => get(user, 'displayName', ''),
+    initialValue: ({ user }) => get(user, 'displayName'),
   },
   {
     name: 'email',
@@ -80,7 +79,6 @@ const fields = ({ attributeFields }) => [
     type: 'password',
     required: ({ values }) => values.get('changePassword'),
     visible: ({ values }) => values.get('changePassword'),
-    initialValue: '',
   },
   {
     name: 'passwordConfirmation',
@@ -91,14 +89,13 @@ const fields = ({ attributeFields }) => [
     constraint: ({ values }) =>
       values.get('passwordConfirmation') === values.get('password'),
     constraintMessage: 'Password Confirmation does not match',
-    initialValue: '',
   },
   {
     name: 'changePassword',
     label: 'Change Password',
     type: 'checkbox',
-    required: true,
-    initialValue: false,
+    visible: !!username,
+    initialValue: !username,
     transient: true,
   },
   {
@@ -110,8 +107,7 @@ const fields = ({ attributeFields }) => [
         value: locale.get('code'),
         label: locale.get('name'),
       })),
-    required: false,
-    initialValue: ({ user }) => get(user, 'preferredLocale', ''),
+    initialValue: ({ user }) => get(user, 'preferredLocale'),
   },
   {
     name: 'timezone',
@@ -122,51 +118,49 @@ const fields = ({ attributeFields }) => [
         value: timezone.get('id'),
         label: timezone.get('name'),
       })),
-    required: false,
-    initialValue: ({ user }) => get(user, 'timezone', ''),
+    initialValue: ({ user }) => get(user, 'timezone'),
   },
-  ...(attributeFields
+  attributeFields
     ? Object.entries(attributeFields).map(([name, config]) => ({
         name: `attributesMap.${name}`,
         label: get(config, 'label', name),
         type: get(config, 'type', 'text'),
         required: get(config, 'required', false),
         initialValue: ({ user }) =>
-          getIn(user, ['attributesMap', 'name'], config.initialValue || ''),
+          getIn(user, ['attributesMap', 'name'], config.initialValue),
       }))
-    : [
-        {
-          name: 'attributesMap',
-          label: 'Attributes',
-          type: 'attributes',
-          required: false,
-          options: ({ attributeDefinitions }) => attributeDefinitions,
-          initialValue: ({ attributeDefinitions, user }) =>
-            get(
-              user,
-              'attributesMap',
-              attributeDefinitions.reduce(
-                (value, { name }) => ({ ...value, [name]: [] }),
-                {},
-              ),
-            ),
-        },
-      ]),
+    : {
+        name: 'attributesMap',
+        label: 'Attributes',
+        type: 'attributes',
+        required: false,
+        options: ({ attributeDefinitions }) => attributeDefinitions,
+        initialValue: ({ user }) => get(user, 'attributesMap'),
+      },
   {
     name: 'memberships',
     label: 'Teams',
     type: 'memberships',
     required: false,
     options: ({ teams }) => teams,
-    initialValue: ({ user }) => get(user, 'memberships', []),
+    initialValue: ({ user }) => get(user, 'memberships'),
   },
 ];
 
-const setup = ({ formKey, username, attributeFields }) => {
+const setup = ({
+  formKey,
+  handleSubmitSuccess,
+  handleSubmitError,
+  ...setupProps
+}) => {
   setupForm({
     formKey,
-    dataSources: dataSources({ username }),
-    fields: fields({ attributeFields }),
+    setupProps,
+    dataSources,
+    fields,
+    handleSubmit,
+    handleSubmitSuccess,
+    handleSubmitError,
   });
 };
 
@@ -176,7 +170,7 @@ const teardown = ({ formKey }) => {
 
 export class UserForm extends Component {
   componentDidMount() {
-    const { auto, components, onSubmit, ...setupProps } = this.props;
+    const { auto, components, ...setupProps } = this.props;
     if (auto) {
       setup(setupProps);
     }
@@ -192,9 +186,20 @@ export class UserForm extends Component {
     return (
       <Form
         formKey={this.props.formKey}
-        onSubmit={this.props.onSubmit}
         components={this.props.components || {}}
-      />
+      >
+        {({ form, error, clearError }) => (
+          <div>
+            {error && (
+              <div>
+                There was an error <button onClick={clearError}>x</button>
+              </div>
+            )}
+
+            {form || <div>LOADING!!!</div>}
+          </div>
+        )}
+      </Form>
     );
   }
 }

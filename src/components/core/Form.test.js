@@ -1,5 +1,5 @@
-import { List, Map } from 'immutable';
-import { initializeDataSources } from './Form';
+import { List, Map, OrderedMap } from 'immutable';
+import { initializeDataSources, validateFields } from './Form';
 
 describe('initializeDataSources', () => {
   test('converts input into normalized datasource shape', () => {
@@ -115,5 +115,98 @@ describe('initializeDataSources', () => {
         another: [fn, [], { dependencies: ['other'] }],
       }),
     ).toThrow(/cyclic/);
+  });
+});
+
+describe('validateFields', () => {
+  test('required but present', () => {
+    const result = validateFields(
+      OrderedMap([
+        ['First Name', Map({ required: true, value: 'foo' })],
+        ['Last Name', Map({ required: false, value: 'foo' })],
+      ]),
+    );
+    expect(result.map(f => f.get('errors'))).toEqualImmutable(
+      OrderedMap([['First Name', List([])], ['Last Name', List([])]]),
+    );
+  });
+
+  test('required and missing', () => {
+    const result = validateFields(
+      OrderedMap([
+        ['First Name', Map({ required: true, value: '' })],
+        [
+          'Last Name',
+          Map({
+            required: true,
+            requiredMessage: 'Last name is required!',
+            value: '',
+          }),
+        ],
+        ['Other', Map({ required: false, value: '' })],
+      ]),
+    );
+    expect(result.map(f => f.get('errors'))).toEqualImmutable(
+      OrderedMap([
+        ['First Name', List(['is required'])],
+        ['Last Name', List(['Last name is required!'])],
+        ['Other', List()],
+      ]),
+    );
+  });
+
+  test('pattern', () => {
+    const result = validateFields(
+      OrderedMap([
+        ['a', Map({ pattern: /^\d+$/, value: 'foo' })],
+        ['b', Map({ pattern: /^\d+$/, patternMessage: 'num', value: 'foo' })],
+        ['c', Map({ pattern: /^\d+$/, value: '21' })],
+        ['d', Map({ pattern: /^\d+$/, value: '' })],
+      ]),
+    );
+    expect(result.map(f => f.get('errors'))).toEqualImmutable(
+      OrderedMap([
+        ['a', List(['invalid format'])],
+        ['b', List(['num'])],
+        ['c', List()],
+        ['d', List()],
+      ]),
+    );
+  });
+
+  test('custom constraint', () => {
+    const result = validateFields(
+      OrderedMap([
+        [
+          'a',
+          Map({
+            constraint: ({ values }) => values.get('a') === values.get('b'),
+            value: 'foo',
+          }),
+        ],
+        [
+          'b',
+          Map({
+            constraint: ({ values }) => values.get('a') === values.get('b'),
+            constraintMessage: 'a and b must be equal',
+            value: 'bar',
+          }),
+        ],
+        [
+          'c',
+          Map({
+            constraint: ({ values }) => values.get('c') === '',
+            value: '',
+          }),
+        ],
+      ]),
+    );
+    expect(result.map(f => f.get('errors'))).toEqualImmutable(
+      OrderedMap([
+        ['a', List(['invalid'])],
+        ['b', List(['a and b must be equal'])],
+        ['c', List()],
+      ]),
+    );
   });
 });

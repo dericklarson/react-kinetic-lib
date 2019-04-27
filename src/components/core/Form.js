@@ -1,6 +1,6 @@
 import React from 'react';
 import { all, call, put, select, takeEvery } from 'redux-saga/effects';
-import { fromJS, is, List, Map, OrderedMap, Set } from 'immutable';
+import { fromJS, is, isImmutable, List, Map, OrderedMap, Set } from 'immutable';
 import { action, connect, dispatch, regHandlers, regSaga } from '../../store';
 import { AttributesField } from './AttributesField';
 import { MembershipsField } from './MembershipsField';
@@ -12,7 +12,8 @@ const identity = it => it;
 export const isEmpty = value =>
   value === null ||
   value === undefined ||
-  (value.hasOwnProperty('length') && value.length === 0);
+  value === '' ||
+  (isImmutable(value) && value.isEmpty());
 
 const convertDataSource = ([fn, args = [], options = {}]) =>
   fromJS({
@@ -59,6 +60,15 @@ const resolveAncestorDependencies = (
   }
 };
 
+const reinitializeFields = fields =>
+  fields.map(field =>
+    field.merge({
+      initialValue: field.get('value'),
+      dirty: false,
+      touched: false,
+    }),
+  );
+
 const defaultFieldProps = fromJS({
   enabled: true,
   options: [],
@@ -99,11 +109,22 @@ const evaluateFieldProps = (props, bindings) => field =>
       updatedField.hasIn(['functions', prop])
         ? updatedField.set(
             prop,
-            updatedField.getIn(['functions', prop])(bindings),
+            fromJS(updatedField.getIn(['functions', prop])(bindings)),
           )
         : updatedField,
     field,
   );
+
+const defaultMap = Map({
+  attributes: Map(),
+  memberships: List(),
+  checkbox: false,
+});
+
+const defaultInitialValue = field =>
+  field.get('initialValue') === null || field.get('initialValue') === undefined
+    ? field.set('initialValue', defaultMap.get(field.get('type'), ''))
+    : field;
 
 const convertField = field =>
   dynamicFieldProps.reduce(
@@ -114,16 +135,69 @@ const convertField = field =>
     Map(defaultFieldProps).merge(field),
   );
 
+export const checkRequired = field =>
+  field.get('required') && isEmpty(field.get('value'))
+    ? List([field.get('requiredMessage', 'is required')])
+    : List();
+
+export const checkPattern = field =>
+  field.get('pattern') &&
+  field.get('type') !== 'text' &&
+  field.get('value') !== '' &&
+  !field.get('value').match(field.get('pattern'))
+    ? List([field.get('patternMessage', 'invalid format')])
+    : List();
+
+export const checkConstraint = values => field =>
+  field.get('constraint') && !field.get('constraint')({ values })
+    ? List([field.get('constraintMessage', 'invalid')])
+    : List();
+
+export const validateFields = fields =>
+  fields.map(field =>
+    field.set(
+      'errors',
+      List([
+        checkRequired,
+        checkPattern,
+        checkConstraint(fields.map(f => f.get('value'))),
+      ]).flatMap(fn => fn(field)),
+    ),
+  );
+
 regHandlers({
-  SETUP_FORM: (state, { payload: { formKey, dataSources, fields } }) =>
+  SETUP_FORM: (
+    state,
+    {
+      payload: {
+        formKey,
+        setupProps,
+        dataSources,
+        fields,
+        handleSubmit,
+        handleSubmitSuccess,
+        handleSubmitError,
+      },
+    },
+  ) =>
     state.setIn(
       ['forms', formKey],
       Map({
-        dataSources: initializeDataSources(dataSources),
+        dataSources: initializeDataSources(dataSources(setupProps)),
         fields: OrderedMap(
-          fields.map(convertField).map(field => [field.get('name'), field]),
+          List(fields(setupProps))
+            .flatten()
+            .filter(f => !!f)
+            .map(convertField)
+            .map(field => [field.get('name'), field]),
         ),
         state: Map(),
+        handleSubmit: handleSubmit(setupProps),
+        handleSubmitSuccess,
+        handleSubmitError,
+        loaded: false,
+        submitting: false,
+        error: null,
       }),
     ),
   EVAL_INITIAL_VALUES: (state, { payload: { formKey } }) => {
@@ -132,6 +206,7 @@ regHandlers({
       .updateIn(['forms', formKey, 'fields'], fields =>
         fields
           .map(evaluateFieldProps(['initialValue'], bindings))
+          .map(defaultInitialValue)
           .map(field => field.set('value', field.get('initialValue'))),
       )
       .setIn(['forms', formKey, 'valuesInitialized'], true);
@@ -147,7 +222,8 @@ regHandlers({
           ),
         ),
       )
-      .setIn(['forms', formKey, 'fieldsInitialized'], true);
+      .updateIn(['forms', formKey, 'fields'], validateFields)
+      .setIn(['forms', formKey, 'loaded'], true);
   },
   SET_VALUE: (state, { payload: { formKey, name, value } }) =>
     state.updateIn(['forms', formKey, 'fields', name], field =>
@@ -167,19 +243,20 @@ regHandlers({
       .setIn(['forms', formKey, 'fields', field, 'touched'], true),
   TEARDOWN_FORM: (state, action) =>
     state.deleteIn(['forms', action.payload.formKey]),
-  VALIDATE: (state, { payload: { formKey } }) =>
-    state.updateIn(['forms', formKey, 'fields'], fields =>
-      fields.map(field =>
-        field.set(
-          'errors',
-          field.get('required') && isEmpty(field.get('value'))
-            ? List(['is required'])
-            : List(),
-        ),
-      ),
-    ),
   CALL_DATA_SOURCE: (state, { payload: { formKey, name, args } }) =>
-    state.setIn(['forms', formKey, 'dataSources', name, 'args'], args),
+    state
+      .mergeIn(['forms', formKey, 'dataSources', name], {
+        args,
+        resolved: false,
+      })
+      .deleteIn(['forms', formKey, 'dataSources', name, 'data']),
+  IGNORE_DATA_SOURCE: (state, { payload: { formKey, name } }) =>
+    state
+      .mergeIn(['forms', formKey, 'dataSources', name], {
+        args: null,
+        resolved: true,
+      })
+      .deleteIn(['forms', formKey, 'dataSources', name, 'data']),
   RESOLVE_DATA_SOURCE: (
     state,
     { payload: { formKey, shared, name, data: nativeData, timestamp, args } },
@@ -191,8 +268,33 @@ regHandlers({
     return updateShared.mergeIn(['forms', formKey, 'dataSources', name], {
       data,
       args,
+      resolved: true,
     });
   },
+  SUBMIT: (state, { payload: { formKey } }) =>
+    state.setIn(['forms', formKey, 'submitting'], true),
+  SUBMIT_SUCCESS: (state, { payload: { formKey } }) =>
+    state
+      .setIn(['forms', formKey, 'submitting'], false)
+      .setIn(['forms', formKey, 'error'], null)
+      .updateIn(['forms', formKey, 'fields'], reinitializeFields),
+  SUBMIT_ERROR: (state, { payload: { formKey, error } }) =>
+    state
+      .setIn(['forms', formKey, 'submitting'], false)
+      .setIn(['forms', formKey, 'error'], error),
+  CLEAR_ERROR: (state, { payload: { formKey } }) =>
+    state.setIn(['forms', formKey, 'error'], null),
+  SUBMIT_FIELD_ERRORS: (state, { payload: { formKey, fieldNames } }) =>
+    state
+      .setIn(['forms', formKey, 'submitting'], false)
+      .setIn(['forms', formKey, 'error'], 'There are invalid fields')
+      .updateIn(['forms', formKey, 'fields'], fields =>
+        fields.map(field =>
+          fieldNames.includes(field.get('name'))
+            ? field.set('touched', true)
+            : field,
+        ),
+      ),
 });
 
 regSaga(
@@ -241,25 +343,28 @@ regSaga(
       .map(ds => ds.get('data'))
       .toJS();
 
-    const args = fromJS(argsFn({ ...dependencies, values }));
-    if (!args.equals(prevArgs)) {
-      const data = yield select(state =>
-        state.getIn(['dataSources', name, 'data']),
-      );
-      const timestamp = yield select(state =>
-        state.getIn(['dataSources', name, 'timestamp']),
-      );
-      if (options.get('shared') && data) {
-        yield put({
-          type: 'RESOLVE_DATA_SOURCE',
-          payload: { formKey, name, data, args },
-        });
-      } else {
-        yield put({
-          type: 'CALL_DATA_SOURCE',
-          payload: { formKey, name, args },
-        });
+    const bindings = { ...dependencies, values };
+    const runIfResult = !options.get('runIf') || options.get('runIf')(bindings);
+    if (runIfResult) {
+      const args = fromJS(argsFn(bindings));
+
+      if (!args.equals(prevArgs)) {
+        const data = yield select(state =>
+          state.getIn(['dataSources', name, 'data']),
+        );
+        const timestamp = yield select(state =>
+          state.getIn(['dataSources', name, 'timestamp']),
+        );
+        if (options.get('shared') && data) {
+          yield put(
+            action('RESOLVE_DATA_SOURCE', { formKey, name, data, args }),
+          );
+        } else {
+          yield put(action('CALL_DATA_SOURCE', { formKey, name, args }));
+        }
       }
+    } else {
+      yield put(action('IGNORE_DATA_SOURCE', { formKey, name }));
     }
   }),
 );
@@ -281,7 +386,7 @@ regSaga(
   }),
 );
 
-const isResolved = dataSource => dataSource.has('data');
+const isResolved = dataSource => dataSource.get('resolved');
 const dependsOn = (name, includeAncestors) => dataSource =>
   dataSource
     .getIn(
@@ -356,6 +461,45 @@ regSaga(
   }),
 );
 
+regSaga(
+  takeEvery('SUBMIT', function*({ payload: { formKey } }) {
+    const [
+      handleSubmit,
+      handleSubmitSuccess,
+      handleSubmitError,
+      values,
+      errors,
+    ] = yield select(state => [
+      state.getIn(['forms', formKey, 'handleSubmit']),
+      state.getIn(['forms', formKey, 'handleSubmitSuccess']),
+      state.getIn(['forms', formKey, 'handleSubmitError']),
+      state
+        .getIn(['forms', formKey, 'fields'])
+        .map(field => field.get('value')),
+      state
+        .getIn(['forms', formKey, 'fields'])
+        .map(field => field.get('errors'))
+        .filter(errors => !errors.isEmpty()),
+    ]);
+
+    if (errors.isEmpty()) {
+      try {
+        const result = yield call(handleSubmit, values);
+        dispatch('SUBMIT_SUCCESS', { formKey });
+        if (handleSubmitSuccess) yield call(handleSubmitSuccess, result);
+      } catch (error) {
+        dispatch('SUBMIT_ERROR', { formKey, error });
+        if (handleSubmitError) yield call(handleSubmitError, error);
+      }
+    } else {
+      dispatch('SUBMIT_FIELD_ERRORS', {
+        formKey,
+        fieldNames: errors.keySeq(),
+      });
+    }
+  }),
+);
+
 export const setupForm = payload => {
   dispatch('SETUP_FORM', payload);
 };
@@ -395,12 +539,15 @@ export const onChange = ({ formKey }) => event => {
       value: event.target.value,
     });
   }
-  dispatch('VALIDATE', { formKey });
 };
 
-export const onSubmit = (onSubmit, values) => event => {
+export const onSubmit = formKey => event => {
   event.preventDefault();
-  onSubmit(values);
+  dispatch('SUBMIT', { formKey });
+};
+
+export const clearError = formKey => event => {
+  dispatch('CLEAR_ERROR', { formKey });
 };
 
 export const setFieldCustom = ({ formKey, name }) => (path, value) => {
@@ -410,56 +557,59 @@ export const setFieldCustom = ({ formKey, name }) => (path, value) => {
 export const mapStateToProps = (state, props) =>
   state.getIn(['forms', props.formKey], Map()).toObject();
 
-export const SelectField = props => (
-  <div className="field">
-    <label htmlFor={props.id || props.name}>{props.label}</label>
-    <select
-      id={props.id || props.name}
-      name={props.name}
-      value={props.value || ''}
-      onBlur={props.onBlur}
-      onChange={props.onChange}
-      onFocus={props.onFocus}
-    >
-      <option />
-      {props.options.map((option, i) => (
-        <option key={i} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
-  </div>
-);
+export const SelectField = props =>
+  props.visible && (
+    <div className="field">
+      <label htmlFor={props.id || props.name}>{props.label}</label>
+      <select
+        id={props.id || props.name}
+        name={props.name}
+        value={props.value || ''}
+        onBlur={props.onBlur}
+        onChange={props.onChange}
+        onFocus={props.onFocus}
+      >
+        <option />
+        {props.options.map((option, i) => (
+          <option key={i} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
 
-export const TextField = props => (
-  <div className="field">
-    <label htmlFor={props.id || props.name}>{props.label}</label>
-    <input
-      type="text"
-      id={props.id || props.name}
-      name={props.name}
-      value={props.value || ''}
-      onBlur={props.onBlur}
-      onChange={props.onChange}
-      onFocus={props.onFocus}
-    />
-  </div>
-);
+export const TextField = props =>
+  props.visible && (
+    <div className="field">
+      <label htmlFor={props.id || props.name}>{props.label}</label>
+      <input
+        type="text"
+        id={props.id || props.name}
+        name={props.name}
+        value={props.value || ''}
+        onBlur={props.onBlur}
+        onChange={props.onChange}
+        onFocus={props.onFocus}
+      />
+    </div>
+  );
 
-export const CheckboxField = props => (
-  <div className="field">
-    <input
-      type="checkbox"
-      id={props.id || props.name}
-      name={props.name}
-      checked={props.value || false}
-      onBlur={props.onBlur}
-      onChange={props.onChange}
-      onFocus={props.onFocus}
-    />
-    <label htmlFor={props.id || props.name}>{props.label}</label>
-  </div>
-);
+export const CheckboxField = props =>
+  props.visible && (
+    <div className="field">
+      <input
+        type="checkbox"
+        id={props.id || props.name}
+        name={props.name}
+        checked={props.value || false}
+        onBlur={props.onBlur}
+        onChange={props.onChange}
+        onFocus={props.onFocus}
+      />
+      <label htmlFor={props.id || props.name}>{props.label}</label>
+    </div>
+  );
 
 export const Field = props => {
   switch (props.type) {
@@ -478,37 +628,50 @@ export const Field = props => {
   }
 };
 
-export const Form = connect(mapStateToProps)(props => (
-  <form onSubmit={onSubmit(props.onSubmit, props.values)}>
-    {props.fieldsInitialized &&
-      props.fields.toList().map(field => (
-        <Field
-          key={field.get('name')}
-          name={field.get('name')}
-          id={field.get('id')}
-          label={field.get('label')}
-          options={field.get('options')}
-          type={field.get('type')}
-          value={field.get('value')}
-          onFocus={onFocus({
-            formKey: props.formKey,
-            field: field.get('name'),
-          })}
-          onBlur={onBlur({ formKey: props.formKey, field: field.get('name') })}
-          onChange={onChange({ formKey: props.formKey })}
-          dirty={field.get('dirty')}
-          valid={field.get('valid')}
-          focused={field.get('focused')}
-          touched={field.get('touched')}
-          errors={field.get('errors')}
-          custom={field.get('custom')}
-          setCustom={setFieldCustom({
-            formKey: props.formKey,
-            name: field.get('name'),
-          })}
-          component={props.components[field.get('name')]}
-        />
-      ))}
-    <button type="submit">Submit</button>
-  </form>
-));
+export const Form = connect(mapStateToProps)(props =>
+  props.children({
+    form: props.loaded && (
+      <form onSubmit={onSubmit(props.formKey)}>
+        {props.fields.toList().map(field => (
+          <Field
+            key={field.get('name')}
+            name={field.get('name')}
+            id={field.get('id')}
+            label={field.get('label')}
+            options={field.get('options')}
+            type={field.get('type')}
+            value={field.get('value')}
+            onFocus={onFocus({
+              formKey: props.formKey,
+              field: field.get('name'),
+            })}
+            onBlur={onBlur({
+              formKey: props.formKey,
+              field: field.get('name'),
+            })}
+            onChange={onChange({ formKey: props.formKey })}
+            visible={field.get('visible')}
+            required={field.get('required')}
+            enabled={field.get('enabled')}
+            dirty={field.get('dirty')}
+            valid={field.get('valid')}
+            focused={field.get('focused')}
+            touched={field.get('touched')}
+            errors={field.get('errors')}
+            custom={field.get('custom')}
+            setCustom={setFieldCustom({
+              formKey: props.formKey,
+              name: field.get('name'),
+            })}
+            component={props.components[field.get('name')]}
+          />
+        ))}
+        <button type="submit" disabled={props.submitting}>
+          Submit
+        </button>
+      </form>
+    ),
+    error: props.error || null,
+    clearError: clearError(props.formKey),
+  }),
+);
