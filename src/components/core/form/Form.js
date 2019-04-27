@@ -1,7 +1,13 @@
 import React from 'react';
 import { all, call, put, select, takeEvery } from 'redux-saga/effects';
 import { fromJS, is, isImmutable, List, Map, OrderedMap, Set } from 'immutable';
-import { action, connect, dispatch, regHandlers, regSaga } from '../../store';
+import {
+  action,
+  connect,
+  dispatch,
+  regHandlers,
+  regSaga,
+} from '../../../store';
 import { AttributesField } from './AttributesField';
 import { MembershipsField } from './MembershipsField';
 import { TextMultiField } from './TextMultiField';

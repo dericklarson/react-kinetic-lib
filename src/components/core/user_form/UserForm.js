@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Form, setupForm, teardownForm } from '../Form';
+import { Form, setupForm, teardownForm } from '../form/Form';
 import { fetchSpace, fetchTeams, fetchUser } from '../../../apis/core';
 import { fetchLocales, fetchTimezones } from '../../../apis/core/meta';
 import { fetchAttributeDefinitions } from '../../../apis/core/attributeDefinitions';

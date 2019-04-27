@@ -1,4 +1,4 @@
-import { List, Map, OrderedMap } from 'immutable';
+import { List, Map, OrderedMap } from 'immutable/dist/immutable-nonambient';
 import { initializeDataSources, validateFields } from './Form';
 
 describe('initializeDataSources', () => {
