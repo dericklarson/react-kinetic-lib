@@ -28,7 +28,7 @@ const remove = (name, value, onChange) => team => () => {
   });
 };
 
-const MembershipsFieldDefault = props => (
+export const TeamsField = props => (
   <div className="field">
     Teams
     <table>
@@ -81,31 +81,25 @@ const MembershipsFieldDefault = props => (
   </div>
 );
 
-export const MembershipsField = ({
-  component: MembershipsFieldImpl = MembershipsFieldDefault,
-  ...props
-}) => (
-  <MembershipsFieldImpl
-    {...props}
-    selectedTeams={props.options
-      .filter(team =>
-        props.value.find(
+export const generateTeamsFieldProps = props => ({
+  ...props,
+  selectedTeams: props.options
+    .filter(team =>
+      props.value.find(
+        membership => membership.getIn(['team', 'name']) === team.get('name'),
+      ),
+    )
+    .sortBy(team => team.get('name')),
+  unselectedTeams: props.options
+    .filter(
+      team =>
+        !props.value.find(
           membership => membership.getIn(['team', 'name']) === team.get('name'),
         ),
-      )
-      .sortBy(team => team.get('name'))}
-    unselectedTeams={props.options
-      .filter(
-        team =>
-          !props.value.find(
-            membership =>
-              membership.getIn(['team', 'name']) === team.get('name'),
-          ),
-      )
-      .sortBy(team => team.get('name'))}
-    selectValue={get(props.custom, 'select', '')}
-    selectChange={onSelectChange(props.setCustom)}
-    add={add(props.name, props.value, props.onChange, props.setCustom)}
-    remove={remove(props.name, props.value, props.onChange)}
-  />
-);
+    )
+    .sortBy(team => team.get('name')),
+  selectValue: get(props.custom, 'select', ''),
+  selectChange: onSelectChange(props.setCustom),
+  add: add(props.name, props.value, props.onChange, props.setCustom),
+  remove: remove(props.name, props.value, props.onChange),
+});

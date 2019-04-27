@@ -2,7 +2,7 @@ import { Map } from 'immutable';
 import { createContext } from 'react';
 import { AttributesField } from './AttributesField';
 import { CheckboxField } from './CheckboxField';
-import { MembershipsField } from './MembershipsField';
+import { TeamsField } from './TeamsField';
 import { SelectField } from './SelectField';
 import { TextField } from './TextField';
 import { TextMultiField } from './TextMultiField';
@@ -10,7 +10,7 @@ import { TextMultiField } from './TextMultiField';
 export const DefaultFieldConfig = Map({
   attributes: AttributesField,
   checkbox: CheckboxField,
-  memberships: MembershipsField,
+  teams: TeamsField,
   select: SelectField,
   text: TextField,
   'text-multi': TextMultiField,

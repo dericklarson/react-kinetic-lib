@@ -163,7 +163,7 @@ const fields = ({ attributeFields, profileAttributeFields, username }) => [
   {
     name: 'memberships',
     label: 'Teams',
-    type: 'memberships',
+    type: 'teams',
     required: false,
     options: ({ teams }) => teams,
     initialValue: ({ user }) => get(user, 'memberships'),

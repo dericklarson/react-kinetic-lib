@@ -19,6 +19,7 @@ import {
 } from '../../../store';
 import { FieldConfigContext } from './FieldConfigContext';
 import { generateAttributesFieldProps } from './AttributesField';
+import { generateTeamsFieldProps } from './TeamsField';
 
 export const getTimestamp = () => Math.floor(new Date().getTime() / 1000);
 const identity = it => it;
@@ -131,7 +132,7 @@ const evaluateFieldProps = (props, bindings) => field =>
 
 const defaultMap = Map({
   attributes: Map(),
-  memberships: List(),
+  teams: List(),
   checkbox: false,
 });
 
@@ -563,7 +564,11 @@ export const mapStateToProps = (state, props) =>
   state.getIn(['forms', props.formKey], Map()).toObject();
 
 const generateFieldProps = props =>
-  props.type === 'attributes' ? generateAttributesFieldProps(props) : props;
+  props.type === 'attributes'
+    ? generateAttributesFieldProps(props)
+    : props.type === 'teams'
+    ? generateTeamsFieldProps(props)
+    : props;
 
 export const Field = props => (
   <FieldConfigContext.Consumer>
