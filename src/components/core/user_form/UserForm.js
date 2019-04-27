@@ -24,12 +24,17 @@ const dataSources = ({ username }) => ({
   ],
   user: [
     fetchUser,
-    [{ username, include: 'attributesMap,memberships' }],
+    [{ username, include: 'attributesMap,memberships,profileAttributesMap' }],
     { transform: result => result.user, runIf: () => !!username },
   ],
   attributeDefinitions: [
     fetchAttributeDefinitions,
     [{ attributeType: 'userAttributeDefinitions' }],
+    { transform: result => result.attributeDefinitions },
+  ],
+  profileAttributeDefinitions: [
+    fetchAttributeDefinitions,
+    [{ attributeType: 'userProfileAttributeDefinitions' }],
     { transform: result => result.attributeDefinitions },
   ],
   teams: [fetchTeams, [], { transform: result => result.teams }],
@@ -40,24 +45,12 @@ const handleSubmit = ({ username }) => values => {
   return username ? updateUser({ username, user }) : createUser({ user });
 };
 
-const fields = ({ attributeFields, username }) => [
+const fields = ({ attributeFields, profileAttributeFields, username }) => [
   !username && {
     name: 'username',
     label: 'Username',
     type: 'text',
     required: true,
-  },
-  {
-    name: 'spaceAdmin',
-    label: 'Space Admin',
-    type: 'checkbox',
-    initialValue: ({ user }) => get(user, 'spaceAdmin'),
-  },
-  {
-    name: 'enabled',
-    label: 'Enabled',
-    type: 'checkbox',
-    initialValue: ({ user }) => get(user, 'enabled'),
   },
   {
     name: 'displayName',
@@ -99,6 +92,18 @@ const fields = ({ attributeFields, username }) => [
     transient: true,
   },
   {
+    name: 'spaceAdmin',
+    label: 'Space Admin?',
+    type: 'checkbox',
+    initialValue: ({ user }) => get(user, 'spaceAdmin'),
+  },
+  {
+    name: 'enabled',
+    label: 'Enabled?',
+    type: 'checkbox',
+    initialValue: ({ user }) => get(user, 'enabled'),
+  },
+  {
     name: 'preferredLocale',
     label: 'Preferred Locale',
     type: 'select',
@@ -136,6 +141,24 @@ const fields = ({ attributeFields, username }) => [
         required: false,
         options: ({ attributeDefinitions }) => attributeDefinitions,
         initialValue: ({ user }) => get(user, 'attributesMap'),
+      },
+  profileAttributeFields
+    ? Object.entries(profileAttributeFields).map(([name, config]) => ({
+        name: `profileAttributesMap.${name}`,
+        label: get(config, 'label', name),
+        type: get(config, 'type', 'text'),
+        required: get(config, 'required', false),
+        initialValue: ({ user }) =>
+          getIn(user, ['profileAttributesMap', 'name'], config.initialValue),
+      }))
+    : {
+        name: 'profileAttributesMap',
+        label: 'Profile Attributes',
+        type: 'attributes',
+        required: false,
+        options: ({ profileAttributeDefinitions }) =>
+          profileAttributeDefinitions,
+        initialValue: ({ user }) => get(user, 'profileAttributesMap'),
       },
   {
     name: 'memberships',

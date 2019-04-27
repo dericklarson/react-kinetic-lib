@@ -44,7 +44,7 @@ const add = (name, value, onChange, setCustom, attrName, attrValue) => () => {
   setCustom(['input'], '');
 };
 
-const AttributesFieldsDefault = props => (
+export const AttributesField = props => (
   <div className="field">
     {props.label}
     <table>
@@ -128,32 +128,27 @@ const AttributesFieldsDefault = props => (
   </div>
 );
 
-export const AttributesField = ({
-  component: AttributesFieldsImpl = AttributesFieldsDefault,
-  ...props
-}) => (
-  <AttributesFieldsImpl
-    {...props}
-    editInputChange={onEditInputChange(props.name, props.value, props.onChange)}
-    newInputChange={onNewInputChange(props.setCustom)}
-    newInputValue={props.custom.get('input', '')}
-    selectChange={onSelectChange(props.setCustom)}
-    selectValue={props.custom.get('select', '')}
-    selectableAttributes={props.options
-      .filter(
-        attrDef =>
-          attrDef.get('allowsMultiple') ||
-          get(props.value, attrDef.get('name'), List()).isEmpty(),
-      )
-      .map(attrDef => attrDef.get('name'))}
-    add={add(
-      props.name,
-      props.value,
-      props.onChange,
-      props.setCustom,
-      props.custom.get('select'),
-      props.custom.get('input'),
-    )}
-    remove={remove(props.name, props.value, props.onChange)}
-  />
-);
+export const generateAttributesFieldProps = props => ({
+  ...props,
+  editInputChange: onEditInputChange(props.name, props.value, props.onChange),
+  newInputChange: onNewInputChange(props.setCustom),
+  newInputValue: props.custom.get('input', ''),
+  selectChange: onSelectChange(props.setCustom),
+  selectValue: props.custom.get('select', ''),
+  selectableAttributes: props.options
+    .filter(
+      attrDef =>
+        attrDef.get('allowsMultiple') ||
+        get(props.value, attrDef.get('name'), List()).isEmpty(),
+    )
+    .map(attrDef => attrDef.get('name')),
+  add: add(
+    props.name,
+    props.value,
+    props.onChange,
+    props.setCustom,
+    props.custom.get('select'),
+    props.custom.get('input'),
+  ),
+  remove: remove(props.name, props.value, props.onChange),
+});

@@ -18,6 +18,7 @@ import {
   regSaga,
 } from '../../../store';
 import { FieldConfigContext } from './FieldConfigContext';
+import { generateAttributesFieldProps } from './AttributesField';
 
 export const getTimestamp = () => Math.floor(new Date().getTime() / 1000);
 const identity = it => it;
@@ -150,7 +151,7 @@ const convertField = field =>
 
 export const checkRequired = field =>
   field.get('required') && isEmpty(field.get('value'))
-    ? List([field.get('requiredMessage', 'is required')])
+    ? List([field.get('requiredMessage', 'This field is required')])
     : List();
 
 export const checkPattern = field =>
@@ -158,12 +159,12 @@ export const checkPattern = field =>
   field.get('type') !== 'text' &&
   field.get('value') !== '' &&
   !field.get('value').match(field.get('pattern'))
-    ? List([field.get('patternMessage', 'invalid format')])
+    ? List([field.get('patternMessage', 'Invalid format')])
     : List();
 
 export const checkConstraint = values => field =>
   field.get('constraint') && !field.get('constraint')({ values })
-    ? List([field.get('constraintMessage', 'invalid')])
+    ? List([field.get('constraintMessage', 'Invalid')])
     : List();
 
 export const validateFields = fields =>
@@ -529,8 +530,8 @@ export const onBlur = ({ formKey, field }) => () => {
   dispatch('BLUR_FIELD', { formKey, field });
 };
 
-export const onChange = ({ formKey, name }) => event => {
-  if (event.target.type === 'checkbox') {
+export const onChange = ({ formKey, type, name }) => event => {
+  if (type === 'checkbox') {
     dispatch('SET_VALUE', {
       formKey,
       name,
@@ -561,12 +562,15 @@ export const setFieldCustom = ({ formKey, name }) => (path, value) => {
 export const mapStateToProps = (state, props) =>
   state.getIn(['forms', props.formKey], Map()).toObject();
 
+const generateFieldProps = props =>
+  props.type === 'attributes' ? generateAttributesFieldProps(props) : props;
+
 export const Field = props => (
   <FieldConfigContext.Consumer>
     {fieldConfig => {
       const FieldImpl =
         props.component || fieldConfig.get(props.type, fieldConfig.get('text'));
-      return <FieldImpl {...props} />;
+      return <FieldImpl {...generateFieldProps(props)} />;
     }}
   </FieldConfigContext.Consumer>
 );
@@ -595,6 +599,7 @@ const FormImpl = props =>
             onChange={onChange({
               formKey: props.formKey,
               name: field.get('name'),
+              type: field.get('type'),
             })}
             visible={field.get('visible')}
             required={field.get('required')}
