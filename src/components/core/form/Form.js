@@ -8,9 +8,7 @@ import {
   regHandlers,
   regSaga,
 } from '../../../store';
-import { AttributesField } from './AttributesField';
-import { MembershipsField } from './MembershipsField';
-import { TextMultiField } from './TextMultiField';
+import { FieldConfigContext } from './FieldConfigContext';
 
 export const getTimestamp = () => Math.floor(new Date().getTime() / 1000);
 const identity = it => it;
@@ -563,78 +561,16 @@ export const setFieldCustom = ({ formKey, name }) => (path, value) => {
 export const mapStateToProps = (state, props) =>
   state.getIn(['forms', props.formKey], Map()).toObject();
 
-export const SelectField = props =>
-  props.visible && (
-    <div className="field">
-      <label htmlFor={props.id || props.name}>{props.label}</label>
-      <select
-        id={props.id || props.name}
-        name={props.name}
-        value={props.value || ''}
-        onBlur={props.onBlur}
-        onChange={props.onChange}
-        onFocus={props.onFocus}
-      >
-        <option />
-        {props.options.map((option, i) => (
-          <option key={i} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
+export const Field = props => (
+  <FieldConfigContext.Consumer>
+    {fieldConfig => {
+      const FieldImpl = fieldConfig.get(props.type, fieldConfig.get('text'));
+      return <FieldImpl {...props} />;
+    }}
+  </FieldConfigContext.Consumer>
+);
 
-export const TextField = props =>
-  props.visible && (
-    <div className="field">
-      <label htmlFor={props.id || props.name}>{props.label}</label>
-      <input
-        type="text"
-        id={props.id || props.name}
-        name={props.name}
-        value={props.value || ''}
-        onBlur={props.onBlur}
-        onChange={props.onChange}
-        onFocus={props.onFocus}
-      />
-    </div>
-  );
-
-export const CheckboxField = props =>
-  props.visible && (
-    <div className="field">
-      <input
-        type="checkbox"
-        id={props.id || props.name}
-        name={props.name}
-        checked={props.value || false}
-        onBlur={props.onBlur}
-        onChange={props.onChange}
-        onFocus={props.onFocus}
-      />
-      <label htmlFor={props.id || props.name}>{props.label}</label>
-    </div>
-  );
-
-export const Field = props => {
-  switch (props.type) {
-    case 'select':
-      return <SelectField {...props} />;
-    case 'checkbox':
-      return <CheckboxField {...props} />;
-    case 'attributes':
-      return <AttributesField {...props} />;
-    case 'memberships':
-      return <MembershipsField {...props} />;
-    case 'text-multi':
-      return <TextMultiField {...props} />;
-    default:
-      return <TextField {...props} />;
-  }
-};
-
-export const Form = connect(mapStateToProps)(props =>
+const FormImpl = props =>
   props.children({
     form: props.loaded && (
       <form onSubmit={onSubmit(props.formKey)}>
@@ -679,5 +615,6 @@ export const Form = connect(mapStateToProps)(props =>
     ),
     error: props.error || null,
     clearError: clearError(props.formKey),
-  }),
-);
+  });
+
+export const Form = connect(mapStateToProps)(FormImpl);
