@@ -2,6 +2,10 @@ import React from 'react';
 import { Provider } from 'react-redux';
 import { context, commitStore, configure, store } from './store';
 import './redux/meta';
+import {
+  DefaultFieldConfig,
+  FieldConfigContext,
+} from './components/core/form/FieldConfigContext';
 
 export {
   default as ContentEditable,
@@ -137,7 +141,13 @@ commitStore();
 
 const KineticLib = props => (
   <Provider store={store} context={context}>
-    {props.children}
+    <FieldConfigContext.Provider
+      value={DefaultFieldConfig.merge(
+        props.components && props.components.fields,
+      )}
+    >
+      {props.children}
+    </FieldConfigContext.Provider>
   </Provider>
 );
 

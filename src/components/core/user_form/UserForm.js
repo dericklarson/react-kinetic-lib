@@ -184,21 +184,8 @@ export class UserForm extends Component {
 
   render() {
     return (
-      <Form
-        formKey={this.props.formKey}
-        components={this.props.components || {}}
-      >
-        {({ form, error, clearError }) => (
-          <div>
-            {error && (
-              <div>
-                There was an error <button onClick={clearError}>x</button>
-              </div>
-            )}
-
-            {form || <div>LOADING!!!</div>}
-          </div>
-        )}
+      <Form formKey={this.props.formKey} components={this.props.components}>
+        {this.props.children}
       </Form>
     );
   }

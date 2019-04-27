@@ -1,6 +1,15 @@
 import React from 'react';
 import { all, call, put, select, takeEvery } from 'redux-saga/effects';
-import { fromJS, is, isImmutable, List, Map, OrderedMap, Set } from 'immutable';
+import {
+  fromJS,
+  get,
+  is,
+  isImmutable,
+  List,
+  Map,
+  OrderedMap,
+  Set,
+} from 'immutable';
 import {
   action,
   connect,
@@ -520,26 +529,17 @@ export const onBlur = ({ formKey, field }) => () => {
   dispatch('BLUR_FIELD', { formKey, field });
 };
 
-export const onChange = ({ formKey }) => event => {
+export const onChange = ({ formKey, name }) => event => {
   if (event.target.type === 'checkbox') {
     dispatch('SET_VALUE', {
       formKey,
-      name: event.target.name,
+      name,
       value: event.target.checked,
-    });
-  } else if (
-    event.target.type === 'attributes' ||
-    event.target.type === 'memberships'
-  ) {
-    dispatch('SET_VALUE', {
-      formKey,
-      name: event.target.name,
-      value: event.target.value,
     });
   } else {
     dispatch('SET_VALUE', {
       formKey,
-      name: event.target.name,
+      name,
       value: event.target.value,
     });
   }
@@ -564,7 +564,8 @@ export const mapStateToProps = (state, props) =>
 export const Field = props => (
   <FieldConfigContext.Consumer>
     {fieldConfig => {
-      const FieldImpl = fieldConfig.get(props.type, fieldConfig.get('text'));
+      const FieldImpl =
+        props.component || fieldConfig.get(props.type, fieldConfig.get('text'));
       return <FieldImpl {...props} />;
     }}
   </FieldConfigContext.Consumer>
@@ -591,7 +592,10 @@ const FormImpl = props =>
               formKey: props.formKey,
               field: field.get('name'),
             })}
-            onChange={onChange({ formKey: props.formKey })}
+            onChange={onChange({
+              formKey: props.formKey,
+              name: field.get('name'),
+            })}
             visible={field.get('visible')}
             required={field.get('required')}
             enabled={field.get('enabled')}
@@ -605,16 +609,20 @@ const FormImpl = props =>
               formKey: props.formKey,
               name: field.get('name'),
             })}
-            component={props.components[field.get('name')]}
+            component={get(props.components, field.get('name'))}
           />
         ))}
+        {props.error && (
+          <div>
+            {props.error}&nbsp;
+            <button onClick={clearError(props.formKey)}>x</button>
+          </div>
+        )}
         <button type="submit" disabled={props.submitting}>
           Submit
         </button>
       </form>
     ),
-    error: props.error || null,
-    clearError: clearError(props.formKey),
   });
 
 export const Form = connect(mapStateToProps)(FormImpl);

@@ -7,13 +7,13 @@ import { SelectField } from './SelectField';
 import { TextField } from './TextField';
 import { TextMultiField } from './TextMultiField';
 
-export const FieldConfigContext = createContext(
-  Map({
-    attributes: AttributesField,
-    checkbox: CheckboxField,
-    memberships: MembershipsField,
-    select: SelectField,
-    text: TextField,
-    'text-multi': TextMultiField,
-  }),
-);
+export const DefaultFieldConfig = Map({
+  attributes: AttributesField,
+  checkbox: CheckboxField,
+  memberships: MembershipsField,
+  select: SelectField,
+  text: TextField,
+  'text-multi': TextMultiField,
+});
+
+export const FieldConfigContext = createContext();
