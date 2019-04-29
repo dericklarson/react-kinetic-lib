@@ -628,7 +628,7 @@ const FormImpl = props =>
     clearError: clearError(props.formKey),
     submit: onSubmit(props.formKey),
     submitting: props.submitting,
-    dirty: props.fields.some(field => field.get('dirty')),
+    dirty: props.loaded && props.fields.some(field => field.get('dirty')),
   });
 
 export const Form = connect(mapStateToProps)(FormImpl);
