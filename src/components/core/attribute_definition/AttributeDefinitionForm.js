@@ -38,6 +38,7 @@ const fields = () => [
     name: 'name',
     label: 'Name',
     type: 'text',
+    helpText: 'Unique Descriptive Name displayed when adding attributes',
     required: true,
     initialValue: ({ attributeDefinition }) =>
       attributeDefinition ? attributeDefinition.get('name') : '',
@@ -46,6 +47,7 @@ const fields = () => [
     name: 'description',
     label: 'Description',
     type: 'text',
+    helpText: 'Optional text describing use or function of the Attribute',
     required: false,
     initialValue: ({ attributeDefinition }) =>
       attributeDefinition ? attributeDefinition.get('description') : '',
