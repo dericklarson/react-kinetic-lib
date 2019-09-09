@@ -43,6 +43,7 @@ const fields = ({ kappSlug, categorySlug }) => [
     name: 'name',
     label: 'Name',
     type: 'text',
+    helpText: 'Displayed Name for Category',
     required: true,
     initialValue: ({ category }) => (category ? category.get('name') : ''),
     onChange: ({ values }, { setValue }) => {
@@ -55,6 +56,7 @@ const fields = ({ kappSlug, categorySlug }) => [
     name: 'slug',
     label: 'Slug',
     type: 'text',
+    helpText: 'Unique Identifier for the Category',
     required: false,
     initialValue: ({ category }) => (category ? category.get('slug') : ''),
     onChange: (_bindings, { setValue }) => {
