@@ -35,6 +35,7 @@ const fields = () => [
     name: 'name',
     label: 'Name',
     type: 'text',
+    helpText: 'This descriptive name is often used incunjunction with Bundle Workflow',
     required: true,
     initialValue: ({ formType }) => (formType ? formType.get('name') : ''),
   },
